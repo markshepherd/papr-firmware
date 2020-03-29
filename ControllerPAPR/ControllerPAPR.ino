@@ -18,12 +18,12 @@
 #define BATTERY_VOLTAGE_DIVIDER_NUMERATOR     1       // This will be the pull down resistor value
 #define BATTERY_VOLTAGE_DIVIDER_DENOMINATOR   6       // This is the cumulative resitance of both the pull up and pull down
 
-#define BATTERY_VOLTAGE_DENOMINATOR            10    // Divide all voltages by this number
-#define BATTERY_VOLTAGE_100_PERCENT           376
-#define BATTERY_VOLTAGE_75_PERCENT            320
-#define BATTERY_VOLTAGE_50_PERCENT            280
-#define BATTERY_VOLTAGE_25_PERCENT            240
-#define BATTERY_VOLTAGE_CRITICAL              192
+#define BATTERY_VOLTAGE_DENOMINATOR            10     // Divide all voltages by this number
+#define BATTERY_VOLTAGE_100_PERCENT           370     // 27.0V (actual rated max 37.6V for 8S)
+#define BATTERY_VOLTAGE_75_PERCENT            320     // 32.0V
+#define BATTERY_VOLTAGE_50_PERCENT            280     // 28.0V
+#define BATTERY_VOLTAGE_25_PERCENT            240     // 24.0V
+#define BATTERY_VOLTAGE_CRITICAL              200     // 20.0V (actual rated min 19.2V for 8S)
 
 //================================================================
 // CONTROLLER PLATFORM
@@ -33,16 +33,13 @@
 #define ATTINY                                2
 
 #if defined(__AVR_ATmega328P__)
-// ATmega
-#define CONTROLLER_PLATFORM                   ATMEGA
-#define FAN_TACHOMETER_INTERRUPT              digitalPinToInterrupt(FAN_TACHOMETER_PIN)
-
+  // ATmega
+  #define CONTROLLER_PLATFORM                 ATMEGA
+  #define FAN_TACHOMETER_INTERRUPT            digitalPinToInterrupt(FAN_TACHOMETER_PIN)
 #elif defined(__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
-
-//ATtiny
-#define CONTROLLER_PLATFORM                   ATTINY
-#define FAN_TACHOMETER_INTERRUPT              FAN_TACHOMETER_PIN
-
+  //ATtiny
+  #define CONTROLLER_PLATFORM                 ATTINY
+  #define FAN_TACHOMETER_INTERRUPT            FAN_TACHOMETER_PIN
 #endif
 
 #define BATTERY_LEVEL_CRITICAL  0
@@ -62,6 +59,9 @@ uint32_t s_tachometer_start = 0;    // Mills when the pulse counter started.
 uint8_t s_battery_level = 0;
 bool s_error = false;
 
+/**
+ * Program setup.
+ */
 void setup() {
   
   // Setup input pins.
@@ -73,12 +73,15 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
 
   s_tachometer_start = millis();
-  attachInterrupt(FAN_TACHOMETER_INTERRUPT, interruptTachometer, RISING);
+  attachInterrupt(FAN_TACHOMETER_INTERRUPT, tachometer_interrupt, RISING);
 
   // Setup PWM clock.
-  beginPwm25kHz();
+  pwm_begin_25kHz();
 }
 
+/**
+ * Program loop.
+ */
 void loop() {
 
   // Read inputs
@@ -87,10 +90,19 @@ void loop() {
   uint16_t potentiometer = analogRead(POTENTIOMETER_PIN);
 
   // Set the fan speed based on the potentiometer.
-  setPwmDuty(min(potentiometer / 4, 0xff));
+  pwn_set_duty(min(potentiometer / 4, 0xff));
 
+  // Loop subfunctions.
   loop_battery_voltage(battery_voltage);
+  loop_fan_tachometer(current_time);
 
+  delay(10);
+}
+
+/**
+ * Program loop: process tachometer.
+ */
+void loop_fan_tachometer(uint32_t current_time) {
   // Calculate tachometer speed.
   if (current_time - s_tachometer_start > 100) {
     uint16_t tachometer_rpm;
@@ -102,10 +114,11 @@ void loop() {
 
     // Do something with the tachometer
   }
-
-  delay(10);
 }
 
+/**
+ * Program loop: process battery voltage.
+ */
 void loop_battery_voltage(uint16_t battery_voltage) {
   // Calculate battery indicator levels.
 
@@ -179,49 +192,49 @@ void loop_battery_voltage(uint16_t battery_voltage) {
 /**
  * Setup the PWM for use with a 25kHz PWM fan.
  */
-void beginPwm25kHz() {
+void pwm_begin_25kHz() {
 
-#if CONTROLLER_PLATFORM == ATMEGA
-  // Pin 3
-  TCCR2A = 0;                               // TC2 Control Register A
-  TCCR2B = 0;                               // TC2 Control Register B
-  TIMSK2 = 0;                               // TC2 Interrupt Mask Register
-  TIFR2 = 0;                                // TC2 Interrupt Flag Register
-
-  // OC2B cleared/set on match when up/down counting, fast PWM
-  TCCR2A |= (1 << COM2B1)
-          | (1 << WGM21)
-          | (1 << WGM20);  
-  TCCR2B |= (1 << WGM22)
-          | (1 << CS21);     // prescaler 8
+  #if CONTROLLER_PLATFORM == ATMEGA
+    // Pin 3
+    TCCR2A = 0;                               // TC2 Control Register A
+    TCCR2B = 0;                               // TC2 Control Register B
+    TIMSK2 = 0;                               // TC2 Interrupt Mask Register
+    TIFR2 = 0;                                // TC2 Interrupt Flag Register
   
-  OCR2A = 79;                               // TOP overflow value (Hz)
-  OCR2B = 0;
+    // OC2B cleared/set on match when up/down counting, fast PWM
+    TCCR2A |= (1 << COM2B1)
+            | (1 << WGM21)
+            | (1 << WGM20);  
+    TCCR2B |= (1 << WGM22)
+            | (1 << CS21);     // prescaler 8
+    
+    OCR2A = 79;                               // TOP overflow value (Hz)
+    OCR2B = 0;
+    
+  #elif CONTROLLER_PLATFORM == ATTINY
   
-#elif CONTROLLER_PLATFORM == ATTINY
-
-  #define PERIOD_uS_16MHz 2000
-
-  // See http://www.technoblogy.com/show?LE0
+    #define PERIOD_uS_16MHz 2000
   
-  // Set timer 1 to interrupt at 1kHz [1000 us]
-  TCCR1A = 0;                               // TC1 Control Register A
-  TCCR1B = 0;                               // TC1 Control Register B
-  TCNT1  = 0;                               // TC1 Counter Value
-
-  // OCR1A = (16*10^6) / (1000[Hz]*8[/tick]) - 1 (must be <65536)
-  OCR1A = 639;      // 16M / 25K - 1
-  OCR1B = 0;
+    // See http://www.technoblogy.com/show?LE0
+    
+    // Set timer 1 to interrupt at 1kHz [1000 us]
+    TCCR1A = 0;                               // TC1 Control Register A
+    TCCR1B = 0;                               // TC1 Control Register B
+    TCNT1  = 0;                               // TC1 Counter Value
   
-  TCCR1B |= (1 << WGM12); // turn on CTC mode (reset on compare)
-  // TCCR1B |= (1 << CS11); // Set CS11 to slow 8x
-  TCCR1B |= (1 << CS10); // Set CS10 to enable timer
-  
-  TIMSK1 |= (1 << OCIE1A); // enable rising edge timer compare interrupt
-  TIMSK1 |= (1 << OCIE1B); // enable falling edge timer compare interrupt
-#else
-  #error beginPwm25kHz: CONTROLLER_PLATFORM invalid or absent.
-#endif
+    // OCR1A = (16*10^6) / (1000[Hz]*8[/tick]) - 1 (must be <65536)
+    OCR1A = 639;      // 16M / 25K - 1
+    OCR1B = 0;
+    
+    TCCR1B |= (1 << WGM12); // turn on CTC mode (reset on compare)
+    // TCCR1B |= (1 << CS11); // Set CS11 to slow 8x
+    TCCR1B |= (1 << CS10); // Set CS10 to enable timer
+    
+    TIMSK1 |= (1 << OCIE1A); // enable rising edge timer compare interrupt
+    TIMSK1 |= (1 << OCIE1B); // enable falling edge timer compare interrupt
+  #else
+    #error beginPwm25kHz: CONTROLLER_PLATFORM invalid or absent.
+  #endif
   
 }
 
@@ -229,18 +242,21 @@ void beginPwm25kHz() {
  *  Sets the duty cycle of the PWM pin
  *  @param duty The target duty cycle from 0 to 255
  */
-void setPwmDuty(byte duty) {
+void pwn_set_duty(byte duty) {
   
-#if CONTROLLER_PLATFORM == ATMEGA
-  OCR2B = duty;                             // PWM Width (duty)
-#elif CONTROLLER_PLATFORM == ATTINY
-  OCR1B = duty;
-#else
-  #error setPwmDuty: CONTROLLER_PLATFORM invalid or absent.
-#endif
+  #if CONTROLLER_PLATFORM == ATMEGA
+    OCR2B = duty;                             // PWM Width (duty)
+  #elif CONTROLLER_PLATFORM == ATTINY
+    OCR1B = duty;
+  #else
+    #error setPwmDuty: CONTROLLER_PLATFORM invalid or absent.
+  #endif
   
 }
 
-void interruptTachometer() {
+/**
+ * Interrupt when the tachometer pin detects a rising edge, indicating the start of a pulse.
+ */
+void tachometer_interrupt() {
   s_tachometer += 1;
 }
