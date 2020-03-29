@@ -1,12 +1,21 @@
 //================================================================
+// OpenPAPR Controller Firmware
+// ---
+// Author: Aaron Sun
+
+
+//================================================================
 // OUTPUT PINS
 #define FAN_PWM_PIN                 3
-#define FAN_TACHOMETER_PIN          4
+#define BATTERY_LED_1_PIN           9
+#define BATTERY_LED_2_PIN           10
+#define BATTERY_LED_3_PIN           11
+#define BATTERY_LED_4_PIN           12
 #define BUZZER_PIN                  13
-#define ALERT_LED_PIN               12
 
 //================================================================
 // INPUT PINS
+#define FAN_TACHOMETER_PIN          4
 #define POTENTIOMETER_PIN           A1
 #define BATTERY_VOLTAGE_PIN         A0
 
@@ -57,6 +66,7 @@ uint16_t s_tachometer = 0;          // Tachometer pulse counter.
 uint32_t s_tachometer_start = 0;    // Mills when the pulse counter started.
 
 uint8_t s_battery_level = 0;
+uint32_t s_battery_level_start = 0;
 bool s_error = false;
 
 /**
@@ -72,6 +82,7 @@ void setup() {
   pinMode(FAN_PWM_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
 
+  // Setup tachometer.
   s_tachometer_start = millis();
   attachInterrupt(FAN_TACHOMETER_INTERRUPT, tachometer_interrupt, RISING);
 
@@ -93,7 +104,7 @@ void loop() {
   pwn_set_duty(min(potentiometer / 4, 0xff));
 
   // Loop subfunctions.
-  loop_battery_voltage(battery_voltage);
+  loop_battery_voltage(current_time, battery_voltage);
   loop_fan_tachometer(current_time);
 
   delay(10);
@@ -119,7 +130,7 @@ void loop_fan_tachometer(uint32_t current_time) {
 /**
  * Program loop: process battery voltage.
  */
-void loop_battery_voltage(uint16_t battery_voltage) {
+void loop_battery_voltage(uint32_t current_time, uint16_t battery_voltage) {
   // Calculate battery indicator levels.
 
   // Lower the battery levels at the designated levels.
@@ -142,6 +153,7 @@ void loop_battery_voltage(uint16_t battery_voltage) {
     case BATTERY_LEVEL_LOW:
       if (battery_voltage < BATTERY_VOLTAGE_CRITICAL * 1024 / BATTERY_VOLTAGE_DENOMINATOR) {
         s_battery_level = BATTERY_LEVEL_CRITICAL;
+        s_battery_level_start = current_time;
       }
       break;
     case BATTERY_LEVEL_CRITICAL:
@@ -180,10 +192,17 @@ void loop_battery_voltage(uint16_t battery_voltage) {
       break;
   }
 
-  // Alert if battery is critical.
-  uint16_t battery_alert = (s_battery_level == BATTERY_LEVEL_CRITICAL) ? HIGH : LOW;
-  digitalWrite(BUZZER_PIN, battery_alert);
-  digitalWrite(ALERT_LED_PIN, battery_alert);
+  // Blink the low battery LED if the battery level is critical.
+  uint16_t led_indicator_1 = (s_battery_level >= BATTERY_LEVEL_LOW) ? HIGH : LOW;
+  if (s_battery_level == BATTERY_LEVEL_CRITICAL) {
+    led_indicator_1 = (current_time - s_battery_level_start % 1000 > 500) ? HIGH : LOW;
+  }
+  
+  digitalWrite(BATTERY_LED_1_PIN, led_indicator_1);
+  digitalWrite(BATTERY_LED_2_PIN, (s_battery_level >= BATTERY_LEVEL_MEDIUM) ? HIGH : LOW);
+  digitalWrite(BATTERY_LED_3_PIN, (s_battery_level >= BATTERY_LEVEL_HIGH) ? HIGH : LOW);
+  digitalWrite(BATTERY_LED_4_PIN, (s_battery_level >= BATTERY_LEVEL_FULL) ? HIGH : LOW);
+  digitalWrite(BUZZER_PIN, (s_battery_level == BATTERY_LEVEL_CRITICAL) ? HIGH : LOW);
 }
 
 
