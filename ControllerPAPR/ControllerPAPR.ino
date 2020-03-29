@@ -186,14 +186,14 @@ void loop_battery_voltage(uint16_t battery_voltage) {
   digitalWrite(ALERT_LED_PIN, battery_alert);
 }
 
-// https://create.arduino.cc/projecthub/MyName1sSimon/control-pwm-fans-with-an-arduino-7bef86
-// http://www.nomad.ee/micros/tiny_pwm/
 
 /**
  * Setup the PWM for use with a 25kHz PWM fan.
  */
 void pwm_begin_25kHz() {
-
+  // Reference: https://create.arduino.cc/projecthub/MyName1sSimon/control-pwm-fans-with-an-arduino-7bef86
+  // Reference: http://www.nomad.ee/micros/tiny_pwm/
+  
   #if CONTROLLER_PLATFORM == ATMEGA
     // Pin 3
     TCCR2A = 0;                               // TC2 Control Register A
@@ -212,7 +212,6 @@ void pwm_begin_25kHz() {
     OCR2B = 0;
     
   #elif CONTROLLER_PLATFORM == ATTINY
-  
     #define PERIOD_uS_16MHz 2000
   
     // See http://www.technoblogy.com/show?LE0
@@ -233,7 +232,7 @@ void pwm_begin_25kHz() {
     TIMSK1 |= (1 << OCIE1A); // enable rising edge timer compare interrupt
     TIMSK1 |= (1 << OCIE1B); // enable falling edge timer compare interrupt
   #else
-    #error beginPwm25kHz: CONTROLLER_PLATFORM invalid or absent.
+    #error pwm_begin_25kHz: CONTROLLER_PLATFORM invalid or absent.
   #endif
   
 }
@@ -249,7 +248,7 @@ void pwn_set_duty(byte duty) {
   #elif CONTROLLER_PLATFORM == ATTINY
     OCR1B = duty;
   #else
-    #error setPwmDuty: CONTROLLER_PLATFORM invalid or absent.
+    #error pwn_set_duty: CONTROLLER_PLATFORM invalid or absent.
   #endif
   
 }
