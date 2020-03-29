@@ -1,47 +1,66 @@
+//================================================================
 // OUTPUT PINS
 #define FAN_PWM_PIN                 3
 #define FAN_TACHOMETER_PIN          4
 #define BUZZER_PIN                  13
 #define ALERT_LED_PIN               12
 
+//================================================================
 // INPUT PINS
 #define POTENTIOMETER_PIN           A1
 #define BATTERY_VOLTAGE_PIN         A0
 
+//================================================================
 // CONSTANTS
-#define FAN_TACHOMETER_PULSES_PER_ROTATION  2
+#define FAN_TACHOMETER_PULSES_PER_ROTATION    2
 
-#define BATTERY_VOLTAGE_MULTIPLIER  6 * 5
-#define BATTERY_VOLTAGE_THRESHOLD   15 * 1024
+// Voltage divider as a ratio
+#define BATTERY_VOLTAGE_DIVIDER_NUMERATOR     1       // This will be the pull down resistor value
+#define BATTERY_VOLTAGE_DIVIDER_DENOMINATOR   6       // This is the cumulative resitance of both the pull up and pull down
 
-#define BATTERY_VOLTAGE_75_PERCENT 17
-#define BATTERY_VOLTAGE_50_PERCENT 17
-#define BATTERY_VOLTAGE_25_PERCENT 17
-#define BATTERY_VOLTAGE_ALARM 17
+#define BATTERY_VOLTAGE_DENOMINATOR            10    // Divide all voltages by this number
+#define BATTERY_VOLTAGE_100_PERCENT           376
+#define BATTERY_VOLTAGE_75_PERCENT            320
+#define BATTERY_VOLTAGE_50_PERCENT            280
+#define BATTERY_VOLTAGE_25_PERCENT            240
+#define BATTERY_VOLTAGE_CRITICAL              192
 
+//================================================================
 // CONTROLLER PLATFORM
 //
 // Different controller platforms have different methods to drive 25kHz PWM.
-#define ATMEGA                      1
-#define ATTINY                      2
+#define ATMEGA                                1
+#define ATTINY                                2
 
 #if defined(__AVR_ATmega328P__)
 // ATmega
-#define CONTROLLER_PLATFORM         ATMEGA
-#define FAN_TACHOMETER_INTERRUPT    digitalPinToInterrupt(FAN_TACHOMETER_PIN)
+#define CONTROLLER_PLATFORM                   ATMEGA
+#define FAN_TACHOMETER_INTERRUPT              digitalPinToInterrupt(FAN_TACHOMETER_PIN)
 
 #elif defined(__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
 
 //ATtiny
-#define CONTROLLER_PLATFORM         ATTINY
-#define FAN_TACHOMETER_INTERRUPT    FAN_TACHOMETER_PIN
+#define CONTROLLER_PLATFORM                   ATTINY
+#define FAN_TACHOMETER_INTERRUPT              FAN_TACHOMETER_PIN
 
 #endif
 
+#define BATTERY_LEVEL_CRITICAL  0
+#define BATTERY_LEVEL_LOW       1
+#define BATTERY_LEVEL_MEDIUM    2
+#define BATTERY_LEVEL_HIGH      3
+#define BATTERY_LEVEL_FULL      4
+
+//================================================================
+// PROGRAM
+
 #include <util/atomic.h>
 
-uint16_t s_tachometer = 0;
-uint32_t s_tachometer_start = 0;
+uint16_t s_tachometer = 0;          // Tachometer pulse counter.
+uint32_t s_tachometer_start = 0;    // Mills when the pulse counter started.
+
+uint8_t s_battery_level = 0;
+bool s_error = false;
 
 void setup() {
   
@@ -61,18 +80,18 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  uint32_t current_time = millis();
 
-  uint16_t battery_voltage = analogRead(BATTERY_VOLTAGE_PIN) * BATTERY_VOLTAGE_MULTIPLIER;
+  // Read inputs
+  uint32_t current_time = millis();
+  uint16_t battery_voltage = analogRead(BATTERY_VOLTAGE_PIN) * BATTERY_VOLTAGE_DIVIDER_DENOMINATOR / BATTERY_VOLTAGE_DIVIDER_NUMERATOR;
   uint16_t potentiometer = analogRead(POTENTIOMETER_PIN);
 
+  // Set the fan speed based on the potentiometer.
   setPwmDuty(min(potentiometer / 4, 0xff));
 
-  uint16_t battery_alert = (battery_voltage < BATTERY_VOLTAGE_THRESHOLD) ? HIGH : LOW;
-  digitalWrite(BUZZER_PIN, battery_alert);
-  digitalWrite(ALERT_LED_PIN, battery_alert);
+  loop_battery_voltage(battery_voltage);
 
+  // Calculate tachometer speed.
   if (current_time - s_tachometer_start > 100) {
     uint16_t tachometer_rpm;
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
@@ -87,6 +106,72 @@ void loop() {
   delay(10);
 }
 
+void loop_battery_voltage(uint16_t battery_voltage) {
+  // Calculate battery indicator levels.
+
+  // Lower the battery levels at the designated levels.
+  switch (s_battery_level) {
+    case BATTERY_LEVEL_FULL:
+      if (battery_voltage < BATTERY_VOLTAGE_75_PERCENT * 1024 / BATTERY_VOLTAGE_DENOMINATOR) {
+        s_battery_level = BATTERY_LEVEL_HIGH;
+      }
+      // Fall through.
+    case BATTERY_LEVEL_HIGH:
+      if (battery_voltage < BATTERY_VOLTAGE_50_PERCENT * 1024 / BATTERY_VOLTAGE_DENOMINATOR) {
+        s_battery_level = BATTERY_LEVEL_MEDIUM;
+      }
+      // Fall through.
+    case BATTERY_LEVEL_MEDIUM:
+      if (battery_voltage < BATTERY_VOLTAGE_25_PERCENT * 1024 / BATTERY_VOLTAGE_DENOMINATOR) {
+        s_battery_level = BATTERY_LEVEL_LOW;
+      }
+      // Fall through.
+    case BATTERY_LEVEL_LOW:
+      if (battery_voltage < BATTERY_VOLTAGE_CRITICAL * 1024 / BATTERY_VOLTAGE_DENOMINATOR) {
+        s_battery_level = BATTERY_LEVEL_CRITICAL;
+      }
+      break;
+    case BATTERY_LEVEL_CRITICAL:
+      break;
+    default:
+      s_error = true;
+      break;
+  }
+
+  // Raise the battery levels when above the midway mark to the next level.
+  switch (s_battery_level) {
+    case BATTERY_LEVEL_CRITICAL:
+      if (battery_voltage > (BATTERY_VOLTAGE_CRITICAL + BATTERY_VOLTAGE_25_PERCENT) * 512 / BATTERY_VOLTAGE_DENOMINATOR) {
+        s_battery_level = BATTERY_LEVEL_LOW;
+      }
+      // Fall through.
+    case BATTERY_LEVEL_LOW:
+      if (battery_voltage > (BATTERY_VOLTAGE_25_PERCENT + BATTERY_VOLTAGE_50_PERCENT) * 512 / BATTERY_VOLTAGE_DENOMINATOR) {
+        s_battery_level = BATTERY_LEVEL_MEDIUM;
+      }
+      // Fall through.
+    case BATTERY_LEVEL_MEDIUM:
+      if (battery_voltage > (BATTERY_VOLTAGE_50_PERCENT + BATTERY_VOLTAGE_75_PERCENT) * 512 / BATTERY_VOLTAGE_DENOMINATOR) {
+        s_battery_level = BATTERY_LEVEL_HIGH;
+      }
+      // Fall through.
+    case BATTERY_LEVEL_HIGH:
+      if (battery_voltage > (BATTERY_VOLTAGE_75_PERCENT + BATTERY_VOLTAGE_100_PERCENT) * 512 / BATTERY_VOLTAGE_DENOMINATOR) {
+        s_battery_level = BATTERY_LEVEL_FULL;
+      }
+      break;
+    case BATTERY_LEVEL_FULL:
+      break;
+    default:
+      s_error = true;
+      break;
+  }
+
+  // Alert if battery is critical.
+  uint16_t battery_alert = (s_battery_level == BATTERY_LEVEL_CRITICAL) ? HIGH : LOW;
+  digitalWrite(BUZZER_PIN, battery_alert);
+  digitalWrite(ALERT_LED_PIN, battery_alert);
+}
 
 // https://create.arduino.cc/projecthub/MyName1sSimon/control-pwm-fans-with-an-arduino-7bef86
 // http://www.nomad.ee/micros/tiny_pwm/
