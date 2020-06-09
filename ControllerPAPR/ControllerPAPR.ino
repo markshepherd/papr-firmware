@@ -9,22 +9,23 @@
 //================================================================
 // OUTPUT PINS
 #define FAN_PWM_PIN                 9 // FIXED
-#define BATTERY_LED_1_PIN           A3
-#define BATTERY_LED_2_PIN           A2
-#define BATTERY_LED_3_PIN           A1
-#define BATTERY_LED_4_PIN           A0
-#define MODE_LED_1_PIN              12
-#define MODE_LED_2_PIN              A5
-#define MODE_LED_3_PIN              A4
-#define BUZZER_PIN                  4
+#define BATTERY_LED_1_PIN           3
+#define BATTERY_LED_2_PIN           4
+#define BATTERY_LED_3_PIN           5
+#define BATTERY_LED_4_PIN           6
+#define MODE_LED_1_PIN              7
+#define MODE_LED_2_PIN              8
+#define MODE_LED_3_PIN              10
+#define BUZZER_PIN                  A5
+#define VIBRATOR_PIN                A4
 
 //================================================================
 // INPUT PINS
 #define FAN_TACHOMETER_PIN          2 // FIXED
-#define BATTERY_VOLTAGE_PIN         A7
-#define BUTTON_1_PIN                5
-#define BUTTON_2_PIN                6
-#define BUTTON_3_PIN                7
+#define BATTERY_VOLTAGE_PIN         A1
+#define BUTTON_1_PIN                13 // Power
+#define BUTTON_2_PIN                12 // Lower
+#define BUTTON_3_PIN                11 // Higher
 
 //================================================================
 // CONSTANTS
@@ -34,12 +35,13 @@
 #define BATTERY_VOLTAGE_DIVIDER_NUMERATOR     1       // This will be the pull down resistor value
 #define BATTERY_VOLTAGE_DIVIDER_DENOMINATOR   (uint32_t)6       // This is the cumulative resitance of both the pull up and pull down
 
-#define BATTERY_VOLTAGE_DENOMINATOR            10     // Divide all voltages by this number
-#define BATTERY_VOLTAGE_100_PERCENT           140     // 27.0V (actual rated max 37.6V for 8S)
-#define BATTERY_VOLTAGE_75_PERCENT            130     // 32.0V
-#define BATTERY_VOLTAGE_50_PERCENT            120     // 28.0V
-#define BATTERY_VOLTAGE_25_PERCENT            110     // 24.0V
-#define BATTERY_VOLTAGE_CRITICAL              100     // 20.0V (actual rated min 19.2V for 8S)
+#define BATTERY_CELLS_SERIES                    5
+#define BATTERY_VOLTAGE_DENOMINATOR           100     // Divide all voltages by this number
+#define BATTERY_VOLTAGE_100_PERCENT           420 * BATTERY_CELLS_SERIES     // s * 4.20V (for LiPo with 0.2C)
+#define BATTERY_VOLTAGE_75_PERCENT            390 * BATTERY_CELLS_SERIES     // s * 3.90V
+#define BATTERY_VOLTAGE_50_PERCENT            375 * BATTERY_CELLS_SERIES     // s * 3.75V
+#define BATTERY_VOLTAGE_25_PERCENT            370 * BATTERY_CELLS_SERIES     // s * 3.70V
+#define BATTERY_VOLTAGE_CRITICAL              350 * BATTERY_CELLS_SERIES     // s * 3.50V
 
 const uint32_t BATTERY_VOLTAGE_0_THRESHOLD       = ((uint32_t)BATTERY_VOLTAGE_CRITICAL);
 const uint32_t BATTERY_VOLTAGE_25_THRESHOLD      = ((uint32_t)BATTERY_VOLTAGE_25_PERCENT);
@@ -53,11 +55,15 @@ const uint32_t BATTERY_VOLTAGE_100_THRESHOLD     = ((uint32_t)BATTERY_VOLTAGE_10
 #define BATTERY_LEVEL_HIGH      3
 #define BATTERY_LEVEL_FULL      4
 
+// Choose a threshold in milliseconds between readings. A smaller value will give more
+// updated results, while a higher value will give more accurate and smooth readings.
 #define FAN_THRESHOLD           1000
 
 //================================================================
 // PROGRAM
 
+// TODO: debounds and hold times are different properties. Unpress debound time should
+// be shorter.Is there
 ButtonDebounce button1(BUTTON_1_PIN, 500);
 ButtonDebounce button2(BUTTON_2_PIN, 500);
 ButtonDebounce button3(BUTTON_3_PIN, 500);
@@ -121,6 +127,7 @@ void updateFanLed() {
   }
 }
 
+/** Power. */
 void onButton1Change(const int state) {
   Serial.println("Button1: " + String(state));
   if (state == HIGH) {
@@ -139,10 +146,12 @@ void onButton1Change(const int state) {
       digitalWrite(BATTERY_LED_3_PIN, LOW);
       digitalWrite(BATTERY_LED_4_PIN, LOW);
       digitalWrite(BUZZER_PIN, LOW);
+      digitalWrite(VIBRATOR_PIN, LOW);
     }
   }
 }
 
+/** Lower Fan Speed. */
 void onButton2Change(const int state) {
   Serial.println("Button2: " + String(state));
   if (state == HIGH) {
@@ -153,6 +162,7 @@ void onButton2Change(const int state) {
   }
 }
 
+/** Raise Fan Speed. */
 void onButton3Change(const int state) {
   Serial.println("Button3: " + String(state));
   if (state == HIGH) {
@@ -269,4 +279,5 @@ void loop_battery_voltage(uint32_t current_time, uint32_t battery_voltage) {
   digitalWrite(BATTERY_LED_3_PIN, (s_battery_level >= BATTERY_LEVEL_HIGH) ? HIGH : LOW);
   digitalWrite(BATTERY_LED_4_PIN, (s_battery_level >= BATTERY_LEVEL_FULL) ? HIGH : LOW);
   digitalWrite(BUZZER_PIN, (s_battery_level == BATTERY_LEVEL_CRITICAL) ? HIGH : LOW);
+  digitalWrite(VIBRATOR_PIN, (s_battery_level == BATTERY_LEVEL_CRITICAL) ? HIGH : LOW);
 }
