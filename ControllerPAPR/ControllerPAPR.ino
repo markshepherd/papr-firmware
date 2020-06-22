@@ -18,12 +18,12 @@
 #define MODE_LED_3_PIN              10
 #define BUZZER_PIN                  A5
 #define VIBRATOR_PIN                A4
+#define POWER_OFF_PIN                13 // Power
 
 //================================================================
 // INPUT PINS
 #define FAN_TACHOMETER_PIN          2 // FIXED
 #define BATTERY_VOLTAGE_PIN         A1
-#define BUTTON_1_PIN                13 // Power
 #define BUTTON_2_PIN                12 // Lower
 #define BUTTON_3_PIN                11 // Higher
 
@@ -33,15 +33,15 @@
 
 // Voltage divider as a ratio
 #define BATTERY_VOLTAGE_DIVIDER_NUMERATOR     1       // This will be the pull down resistor value
-#define BATTERY_VOLTAGE_DIVIDER_DENOMINATOR   (uint32_t)6       // This is the cumulative resitance of both the pull up and pull down
+#define BATTERY_VOLTAGE_DIVIDER_DENOMINATOR   (uint32_t)5       // This is the cumulative resitance of both the pull up and pull down
 
 #define BATTERY_CELLS_SERIES                    5
 #define BATTERY_VOLTAGE_DENOMINATOR           100     // Divide all voltages by this number
-#define BATTERY_VOLTAGE_100_PERCENT           420 * BATTERY_CELLS_SERIES     // s * 4.20V (for LiPo with 0.2C)
-#define BATTERY_VOLTAGE_75_PERCENT            390 * BATTERY_CELLS_SERIES     // s * 3.90V
-#define BATTERY_VOLTAGE_50_PERCENT            375 * BATTERY_CELLS_SERIES     // s * 3.75V
-#define BATTERY_VOLTAGE_25_PERCENT            370 * BATTERY_CELLS_SERIES     // s * 3.70V
-#define BATTERY_VOLTAGE_CRITICAL              350 * BATTERY_CELLS_SERIES     // s * 3.50V
+#define BATTERY_VOLTAGE_100_PERCENT           (420 * BATTERY_CELLS_SERIES)     // s * 4.20V (for LiPo with 0.2C)
+#define BATTERY_VOLTAGE_75_PERCENT            (390 * BATTERY_CELLS_SERIES)     // s * 3.90V
+#define BATTERY_VOLTAGE_50_PERCENT            (375 * BATTERY_CELLS_SERIES)     // s * 3.75V
+#define BATTERY_VOLTAGE_25_PERCENT            (370 * BATTERY_CELLS_SERIES)     // s * 3.70V
+#define BATTERY_VOLTAGE_CRITICAL              (350 * BATTERY_CELLS_SERIES)     // s * 3.50V
 
 const uint32_t BATTERY_VOLTAGE_0_THRESHOLD       = ((uint32_t)BATTERY_VOLTAGE_CRITICAL);
 const uint32_t BATTERY_VOLTAGE_25_THRESHOLD      = ((uint32_t)BATTERY_VOLTAGE_25_PERCENT);
@@ -64,9 +64,9 @@ const uint32_t BATTERY_VOLTAGE_100_THRESHOLD     = ((uint32_t)BATTERY_VOLTAGE_10
 
 // TODO: debounds and hold times are different properties. Unpress debound time should
 // be shorter.Is there
-ButtonDebounce button1(BUTTON_1_PIN, 500);
-ButtonDebounce button2(BUTTON_2_PIN, 500);
-ButtonDebounce button3(BUTTON_3_PIN, 500);
+//ButtonDebounce button1(BUTTON_1_PIN, 500);
+ButtonDebounce button2(BUTTON_2_PIN, 100);
+ButtonDebounce button3(BUTTON_3_PIN, 100);
 FanController fan(FAN_TACHOMETER_PIN, FAN_THRESHOLD, FAN_PWM_PIN);
 
 uint8_t s_fan_level = 0;
@@ -97,7 +97,10 @@ void setup() {
   pinMode(BATTERY_LED_4_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
   
-  button1.setCallback(onButton1Change);
+  pinMode(POWER_OFF_PIN, OUTPUT);
+  digitalWrite(POWER_OFF_PIN, LOW);
+  
+  //button1.setCallback(onButton1Change);
   button2.setCallback(onButton2Change);
   button3.setCallback(onButton3Change);
   fan.begin();
@@ -178,7 +181,7 @@ void onButton3Change(const int state) {
  */
 void loop() {
 
-  button1.update();
+  //button1.update();
   if (!s_on) {
     return;
   }
