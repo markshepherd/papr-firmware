@@ -69,7 +69,14 @@ ButtonDebounce button2(BUTTON_2_PIN, 100);
 ButtonDebounce button3(BUTTON_3_PIN, 100);
 FanController fan(FAN_TACHOMETER_PIN, FAN_THRESHOLD, FAN_PWM_PIN);
 
+
+/* Fan has 3 levels:
+ *  0 == Low, MODE_LED_1_PIN is HIGH
+ *  1 == Med, MODE_LED_1_PIN & MODE_LED_2_PIN are HIGH
+ *  2 == High, MODE_LED_1_PIN, MODE_LED_2_PIN & MODE_LED_3_PIN are HIGH */
 uint8_t s_fan_level = 0;
+
+
 uint8_t s_battery_level = 0;
 uint32_t s_battery_level_start = 0;
 bool s_error = false;
