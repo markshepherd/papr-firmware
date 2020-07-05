@@ -76,15 +76,16 @@ FanController fan(FAN_TACHOMETER_PIN, FAN_THRESHOLD, FAN_PWM_PIN);
  *  2 == High, MODE_LED_1_PIN, MODE_LED_2_PIN & MODE_LED_3_PIN are HIGH */
 uint8_t s_fan_level = 0;
 
+/* Fan PWM Constants:
+ *  These constants are the PWM rates for the fan at the different levels of flow */
+uint8_t s_fan_pwm_low = 60;
+uint8_t s_fan_pwm_mid = 80;
+uint8_t s_fan_pwm_hi = 100;
 
 uint8_t s_battery_level = 0;
 uint32_t s_battery_level_start = 0;
 bool s_error = false;
 bool s_on = true;
-
-uint8_t s_fan_pwm_low = 60;
-uint8_t s_fan_pwm_mid = 80;
-uint8_t s_fan_pwm_hi = 100;
 
 /**
  * Program setup.
