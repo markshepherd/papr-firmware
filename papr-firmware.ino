@@ -5,6 +5,7 @@
 
 #include <FanController.h>
 #include <ButtonDebounce.h>
+#include <FanState.h>
 
 //================================================================
 // OUTPUT PINS
@@ -69,13 +70,6 @@ ButtonDebounce button2(BUTTON_2_PIN, 100);
 ButtonDebounce button3(BUTTON_3_PIN, 100);
 FanController fan(FAN_TACHOMETER_PIN, FAN_THRESHOLD, FAN_PWM_PIN);
 
-
-/* Fan has 3 levels:
- *  0 == Low, MODE_LED_1_PIN is HIGH
- *  1 == Med, MODE_LED_1_PIN & MODE_LED_2_PIN are HIGH
- *  2 == High, MODE_LED_1_PIN, MODE_LED_2_PIN & MODE_LED_3_PIN are HIGH */
-uint8_t s_fan_level = 0;
-
 /* Fan PWM Constants:
  *  These constants are the PWM rates for the fan at the different levels of flow */
 uint8_t s_fan_pwm_low = 60;
@@ -86,6 +80,9 @@ uint8_t s_battery_level = 0;
 uint32_t s_battery_level_start = 0;
 bool s_error = false;
 bool s_on = true;
+
+// Tracks the fan state (low medium high)
+FanState fs;
 
 /**
  * Program setup.
@@ -120,19 +117,19 @@ void setup() {
 }
 
 void updateFanLed() {
-  digitalWrite(MODE_LED_3_PIN, (s_fan_level > 1) ? HIGH : LOW);
-  digitalWrite(MODE_LED_2_PIN, (s_fan_level > 0) ? HIGH : LOW);
+  digitalWrite(MODE_LED_3_PIN, (fs.fans() >= FANS_High) ? HIGH : LOW);
+  digitalWrite(MODE_LED_2_PIN, (fs.fans() >= FANS_Medium) ? HIGH : LOW);
   digitalWrite(MODE_LED_1_PIN, HIGH);
-  Serial.println("Fan: " + String(s_fan_level));
+  Serial.println("Fan: " + String(fs.fans()));
 
-  switch (s_fan_level) {
-    case 0:
+  switch (fs.fans()) {
+    case FANS_Low:
       fan.setDutyCycle(s_fan_pwm_low);
       break;
-    case 1:
+    case FANS_Medium:
       fan.setDutyCycle(s_fan_pwm_mid);
       break;
-    case 2:
+    case FANS_High:
       fan.setDutyCycle(s_fan_pwm_hi);
       break;
   }
@@ -166,9 +163,7 @@ void onButton1Change(const int state) {
 void onButton2Change(const int state) {
   Serial.println("Button2: " + String(state));
   if (state == HIGH) {
-    if (s_fan_level > 0) {
-      s_fan_level--; 
-    }
+    fs.decrease();
     updateFanLed();
   }
 }
@@ -177,9 +172,7 @@ void onButton2Change(const int state) {
 void onButton3Change(const int state) {
   Serial.println("Button3: " + String(state));
   if (state == HIGH) {
-    if (s_fan_level < 2) {
-      s_fan_level++; 
-    }
+    fs.increase();
     updateFanLed();
   }
 }

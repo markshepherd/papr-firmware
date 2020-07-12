@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "..\lib\FanState.h"
+#include "..\libraries\FanState.h"
 TEST(FanState, Cycling) {
     FanState fs;
     ASSERT_EQ(fs.fans(), FANS_Low);

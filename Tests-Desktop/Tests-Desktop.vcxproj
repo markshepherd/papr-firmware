@@ -33,14 +33,14 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
-    <ClCompile Include="..\lib\FanState.cpp" />
+    <ClCompile Include="..\libraries\FanState.cpp" />
     <ClCompile Include="test_fans.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\lib\FanState.h" />
+    <ClInclude Include="..\libraries\FanState.h" />
   </ItemGroup>
   <ItemDefinitionGroup />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
