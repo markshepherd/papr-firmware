@@ -122,7 +122,7 @@ void setup() {
     buttonFanDown.setCallback(onButtonDownChange);
 
     // Flash all LEDs a few times
-    for (int k = 0; k < 3; k += 1) {
+    for (int k = 0; k < 5; k += 1) {
         flashLEDs(200);
     }
 }
