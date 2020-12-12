@@ -1,12 +1,10 @@
-#pragma once
-
 /*
 *   PAPRHwDefs.h
 * 
 * This header file defines all the input/output pins on the v2 PAPR board,
 * and provides code to configure the pins and initialize them to a default state.
 */
-
+#pragma once
 
 //================================================================
 // OUTPUT PINS
@@ -31,27 +29,21 @@
 
 //================================================================
 inline void configurePins() {
-    // Output pins require a 1 bit
+    // Output pins are defined by a 1 bit
     DDRB = DDRB | B00000100; // Outputs are PB2
     DDRC = DDRC | B00111111; // Outputs are PC0, PC1, PC2, PC3, PC4, PC5
     DDRD = DDRD | B00100101; // Outputs are PD0, PD2, PD5
 
-    // Input pins require a 0 bit
+    // Input pins are defined by a 0 bit
     DDRB = DDRB & B11111101; // Inputs are PB1
     DDRC = DDRC & B01111111; // Inputs are PC7
     DDRD = DDRD & B01110101; // Inputs are PD1, PD3, PD7
 
-    // previous code
-    //    DDRB = DDRB | B01000101; // erroneously defines PB0 and PB6 as outputs.
-    //    DDRD = DDRD | B10000101; // erroneously defines PD7 as output
-    //    fails to define as output PD5 
-    //    assumes all inputs are already set properly to 0 in DDRB/C/D
-
-    // Setup Pullup resistor for PD7
+    // PD7 needs a pullup resistor
     PORTD = B10000000;
 
     // Turn off the USART, because it wants to use pins 0 and 1 (a.k.a. PORTD0 and PORTD1) which we are using for other things.
-    // We never call Serial.begin() so I don't know why the USART is on.
+    // BTW we never call Serial.begin() so I don't know why the USART is on.
     bitClear(UCSR0B, RXEN0);
     bitClear(UCSR0B, TXEN0);
     bitClear(UCSR0B, RXCIE0);
