@@ -2,5 +2,6 @@
 .vscode
 packages
 Debug
+Release
 __vm/
-.~lock.*
+n.~lock.*

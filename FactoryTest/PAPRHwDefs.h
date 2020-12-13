@@ -44,10 +44,10 @@ inline void configurePins() {
 
     // Turn off the USART, because it wants to use pins 0 and 1 (a.k.a. PORTD0 and PORTD1) which we are using for other things.
     // BTW we never call Serial.begin() so I don't know why the USART is on.
-    bitClear(UCSR0B, RXEN0);
-    bitClear(UCSR0B, TXEN0);
-    bitClear(UCSR0B, RXCIE0);
-    bitClear(UCSR0B, UDRIE0);
+    //bitClear(UCSR0B, RXEN0);
+    //bitClear(UCSR0B, TXEN0);
+    //bitClear(UCSR0B, RXCIE0);
+    //bitClear(UCSR0B, UDRIE0);
 }
 
 inline void initializeDevices() {
