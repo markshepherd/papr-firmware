@@ -2,7 +2,8 @@
 *   PAPRHwDefs.h
 * 
 * This header file defines all the input/output pins on the v2 PAPR board,
-* and provides code to configure the pins and initialize them to a default state.
+* and provides code to configure the pins, initialize the hardware to a default state,
+* and interpret raw input values.
 */
 #pragma once
 
@@ -19,6 +20,12 @@
 #define BUZZER_PIN                  10  /* PB2 */  /* Analog: 0-255 duty cycle */
 #define VIBRATOR_PIN                2   /* PD2 */  /* Digital: LOW = off, HIGH = on */
 
+const int LED_ON = LOW;
+const int LED_OFF = HIGH;
+
+const int VIBRATOR_ON = HIGH;
+const int VIBRATOR_OFF = LOW;
+
 //================================================================
 // INPUT PINS
 #define BATTERY_VOLTAGE_PIN         A7  /* PC7 */  /* Analog: values range from roughly 0x100 (6 volts) to 0x300 (24 volts) */
@@ -26,6 +33,9 @@
 #define FAN_RPM_PIN                 3   /* PD3 */  /* Digital: square wave, frequency proportional to RPM */
 #define FAN_UP_PIN                  1   /* PD1 */  /* Digital: LOW = pushed, HIGH = released */
 #define FAN_DOWN_PIN                9   /* PB1 */  /* Digital: LOW = pushed, HIGH = released */
+
+const int BUTTON_PUSHED = LOW;
+const int BUTTON_RELEASED = HIGH;
 
 //================================================================
 inline void configurePins() {
@@ -63,4 +73,25 @@ inline void initializeDevices() {
 
     // Vibrator off
     digitalWrite(VIBRATOR_PIN, LOW);
+}
+
+// Return battery fullness as a number between 0 (empty = 12 volts) and 100 (full = 24 volts).
+inline unsigned int readBatteryFullness() {
+    // Here are the battery readings we expect for minimum and maximum battery voltages.
+    const int readingAt12Volts = 386;
+    const int readingAt24Volts = 784;
+
+    // TODO: get rid of the hard-coded constants, and use a better way to derive the battery readings.
+    // There is code at https://github.com/airtoall/papr-firmware/blob/752f2db06e0bd756dd24af65175921b3bed734dd/ControllerFirmware/ControllerFirmware.ino#L196,
+    // but I'm not sure what it means.
+
+    // Read the current battery voltage and limit the value to the expected range.
+    uint16_t reading = analogRead(BATTERY_VOLTAGE_PIN);
+    if (reading < readingAt12Volts) reading = readingAt12Volts;
+    if (reading > readingAt24Volts) reading = readingAt24Volts;
+
+    // Calculate how full the battery is. This will be a number between 0 and 1.
+    // We use floating point because it's easier than trying to do this in fixed point, and the program memory impact appears to be small.
+    float fullness = float(reading - readingAt12Volts) / float(readingAt24Volts - readingAt12Volts);
+    return (unsigned int)(fullness * 100);
 }

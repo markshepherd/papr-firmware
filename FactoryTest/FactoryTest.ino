@@ -14,25 +14,25 @@ const int DELAY_200ms = 200;
 const int DELAY_500ms = 500;
 const int DELAY_1Sec = 1000;
 
-// These are all the exercises that this app performs, in the order that they are performed.
-enum Exercise {
-    begin,
-    buzzer,
-    vibrator,
-    fanMaximum,
-    fanMedium,
-    fanMinimum,
-    batteryVoltage,
-    fanRPM,
-    end
-};
-// Note - this list doesn't include exercises for the fan buttons, because the fan up button 
-// is used to cycle through the sequence of exercises so it gets plenty of exercise, and the
-// fan down button has a separate exercise that is not part of the sequence.
+// ----------------------- Button data -----------------------
 
-/********************************************************************
- * LEDs
- ********************************************************************/
+// The ButtonDebounce object polls the pin, and calls a callback when the pin value changes. There is one ButtonDebounce object per button.
+ButtonDebounce buttonFanUp(FAN_UP_PIN, DELAY_100ms);
+ButtonDebounce buttonFanDown(FAN_DOWN_PIN, DELAY_100ms);
+
+// ----------------------- Fan data -----------------------
+
+// How many milliseconds should there be between readings of the fan speed. A smaller value will update
+// more often, while a higher value will give more accurate and smooth readings.
+const int FAN_SPEED_READING_INTERVAL = 1000;
+
+FanController fanController(FAN_RPM_PIN, FAN_SPEED_READING_INTERVAL, FAN_PWM_PIN);
+
+const int FAN_DUTYCYCLE_MINIMUM = 0;
+const int FAN_DUTYCYCLE_MEDIUM = 50;
+const int FAN_DUTYCYCLE_MAXIMUM = 100;
+
+// ----------------------- LED data -----------------------
 
 // A list of all the LEDs, from left to right as they appear on the board.
 byte LEDpins[] = {
@@ -46,32 +46,37 @@ byte LEDpins[] = {
 };
 const int numLEDs = sizeof(LEDpins) / sizeof(byte);
 
+
+/********************************************************************
+ * LEDs
+ ********************************************************************/
+
 // Turn off all LEDs
 void allLEDsOff() {
     for (int i = 0; i < numLEDs; i += 1) {
-        digitalWrite(LEDpins[i], HIGH);
+        digitalWrite(LEDpins[i], LED_OFF);
     }
 }
 
 // Turn a single LED on, then off again.
 void flashLED(byte pin, unsigned long duration) {
-    digitalWrite(pin, LOW);
+    digitalWrite(pin, LED_ON);
     delay(duration);
-    digitalWrite(pin, HIGH);
+    digitalWrite(pin, LED_OFF);
 }
 
 // Turn all the LEDs on, then off again.
 void flashLEDs(unsigned long duration) {
     // Turn on all LEDs
     for (int i = 0; i < numLEDs; i += 1) {
-        digitalWrite(LEDpins[i], LOW);
+        digitalWrite(LEDpins[i], LED_ON);
     }
 
     delay(duration);
 
     // Turn off all LEDs
     for (int i = 0; i < numLEDs; i += 1) {
-        digitalWrite(LEDpins[i], HIGH);
+        digitalWrite(LEDpins[i], LED_OFF);
     }
 
     delay(duration);
@@ -89,9 +94,9 @@ void exerciseEachLED(int firstIndex, int lastIndex, int duration) {
     int increment = firstIndex < lastIndex ? 1 : -1;
     int i = firstIndex;
     do {
-        digitalWrite(LEDpins[i], LOW);
+        digitalWrite(LEDpins[i], LED_ON);
         delay(duration);
-        digitalWrite(LEDpins[i], HIGH);
+        digitalWrite(LEDpins[i], LED_OFF);
         if (i == lastIndex) break;
         i += increment;
     } while (1);
@@ -107,7 +112,6 @@ void endExercise() {
     exerciseEachLED(numLEDs - 1, 0, 50);
 }
 
-
 /********************************************************************
  * Temporary debug code, because we don't yet have a usable serial port or debugger.
  ********************************************************************/
@@ -116,13 +120,13 @@ void writeHexDigitToLights(int hexDigit) {
     allLEDsOff();
 
     // Turn on the leftmost light, to show that we're displaying a number
-    digitalWrite(LEDpins[0], LOW);
+    digitalWrite(LEDpins[0], LED_ON);
 
     // Turn on the lights corresponding to the bits of hexDigit
-    digitalWrite(LEDpins[3], (hexDigit & 8) ? LOW : HIGH);
-    digitalWrite(LEDpins[4], (hexDigit & 4) ? LOW : HIGH);
-    digitalWrite(LEDpins[5], (hexDigit & 2) ? LOW : HIGH);
-    digitalWrite(LEDpins[6], (hexDigit & 1) ? LOW : HIGH);
+    digitalWrite(LEDpins[3], (hexDigit & 8) ? LED_ON : LED_OFF);
+    digitalWrite(LEDpins[4], (hexDigit & 4) ? LED_ON : LED_OFF);
+    digitalWrite(LEDpins[5], (hexDigit & 2) ? LED_ON : LED_OFF);
+    digitalWrite(LEDpins[6], (hexDigit & 1) ? LED_ON : LED_OFF);
 
     delay(DELAY_1Sec);
     allLEDsOff();
@@ -154,29 +158,23 @@ void writeNumberToLights(uint16_t number) {
 }
 
 /********************************************************************
- * Buttons
- ********************************************************************/
-
-// The ButtonDebounce object polls the pin, and calls a callback when the pin value changes. There is one ButtonDebounce object per button.
-ButtonDebounce buttonFanUp(FAN_UP_PIN, DELAY_100ms);
-ButtonDebounce buttonFanDown(FAN_DOWN_PIN, DELAY_100ms);
-
-/********************************************************************
  * Fan
  ********************************************************************/
 
-// How many milliseconds should there be between readings of the fan speed. A smaller value will update
-// more often, while a higher value will give more accurate and smooth readings.
-const int FAN_SPEED_READING_INTERVAL = 1000;
-
-FanController fanController(FAN_RPM_PIN, FAN_SPEED_READING_INTERVAL, FAN_PWM_PIN);
-
-const int FAN_DUTYCYCLE_MINIMUM = 0;
-const int FAN_DUTYCYCLE_MEDIUM = 50;
-const int FAN_DUTYCYCLE_MAXIMUM = 100;
-
 void exerciseFan(int dutyCycle) {
     fanController.setDutyCycle(dutyCycle);
+}
+
+void exerciseFanMaximum() {
+    exerciseFan(FAN_DUTYCYCLE_MAXIMUM);
+}
+
+void exerciseFanMedium() {
+    exerciseFan(FAN_DUTYCYCLE_MEDIUM);
+}
+
+void exerciseFanMinimum() {
+    exerciseFan(FAN_DUTYCYCLE_MINIMUM);
 }
 
 void exerciseFanSpeed() {
@@ -185,16 +183,9 @@ void exerciseFanSpeed() {
     // wait for the fan to get up to speed
     delay(DELAY_1Sec);
 
-    // read the speed
-    unsigned int speed = fanController.getSpeed();
-
-    if (speed > 65535) {
-        // speed is too big for writeNumberToLights
-        exerciseAllLEDs();
-    } else {
-        writeNumberToLights(speed);
-    }
-
+    // display the speed on the lights
+    writeNumberToLights(fanController.getSpeed());
+ 
     fanController.setDutyCycle(FAN_DUTYCYCLE_MINIMUM);
 }
 
@@ -213,40 +204,29 @@ void exerciseBuzzer() {
 
 void exerciseVibrator() {
     for (int i = 0; i < 3; i += 1) {
-        digitalWrite(VIBRATOR_PIN, HIGH);
+        digitalWrite(VIBRATOR_PIN, VIBRATOR_ON);
         delay(DELAY_500ms);
-        digitalWrite(VIBRATOR_PIN, LOW);
+        digitalWrite(VIBRATOR_PIN, VIBRATOR_OFF);
         delay(DELAY_500ms);
     }
 }
 
 void exerciseBatteryVoltage() {
-    // The battery readings we expect for minimum and maximum battery voltages.
-    // TODO: we probably need to get rid of these hard-coded constants, and use a better way to derive these numbers.
-    const int readingAt12Volts = 386;
-    const int readingAt24Volts = 784;
 
     // For the next 10 seconds we will display the battery voltage on the LEDs.
     // Empty battery = 1 LEDs. Full battery = 7 LEDs.
     // As you change the input voltage, the LEDs will update accordingly.
     unsigned long startTime = millis();
     while (millis() - startTime < 10000) {
-        // Read the current battery voltage and limit the value to the expected range.
-        uint16_t reading = analogRead(BATTERY_VOLTAGE_PIN);
-        if (reading < readingAt12Volts) reading = readingAt12Volts;
-        if (reading > readingAt24Volts) reading = readingAt24Volts;
-
-        // Calculate how full the battery is. This will be a number between 0 and 1.
-        // (Note: we use floating point because it's easier than trying to do this in fixed point. The program memory impact appears to be negligible.)
-        float fullness = float(reading - readingAt12Volts) / float(readingAt24Volts - readingAt12Volts);
+        unsigned int fullness = readBatteryFullness();
 
         // Calculate how many of the 7 LEDs we should show. 
-        uint16_t howManyLEDs = int(fullness * 6.0) + 1;
+        uint16_t howManyLEDs = ((fullness * 6) / 100) + 1;
 
         // Display the calculated number of LEDs.
         allLEDsOff();
         for (int i = 0; i < howManyLEDs; i += 1) {
-            digitalWrite(LEDpins[i], LOW);
+            digitalWrite(LEDpins[i], LED_ON);
         }
     }
 }
@@ -255,55 +235,33 @@ void exerciseBatteryVoltage() {
  * Main program that drives the sequence of exercises.
  ********************************************************************/
 
-Exercise currentExercise;
+void (*exercises[])() = {
+        exerciseAllLEDs,
+        exerciseBuzzer,
+        exerciseVibrator,
+        exerciseFanMaximum,
+        exerciseFanMedium,
+        exerciseFanMinimum,
+        exerciseBatteryVoltage,
+        exerciseFanSpeed
+};
+const int numberOfExercises = sizeof(exercises) / sizeof(void (*)());
 
-// Find the next exercise value. if e is the last exercise, then we wrap around to the first exercise.
-Exercise nextExercise(Exercise e) {
-    e = static_cast<Exercise>(static_cast<int>(e) + 1);
-    if (e == Exercise::end) {
-        e = begin;
-    }
-    return e;
-}
+int currentExercise;
 
-// Do the specified exercise.
-void doExercise(Exercise exercise) {
-    currentExercise = exercise;
+// Do the next exercise. If we've done them all, then start over at the first.
+void doNextExercise() {
+    currentExercise = (currentExercise + 1) % numberOfExercises;
 
     startExercise();
-    switch (exercise) {
-    case begin:
-        exerciseAllLEDs();
-        break;
-    case buzzer:
-        exerciseBuzzer();
-        break;
-    case vibrator:
-        exerciseVibrator();
-        break;
-    case fanMaximum:
-        exerciseFan(FAN_DUTYCYCLE_MAXIMUM);
-        break;
-    case fanMedium:
-        exerciseFan(FAN_DUTYCYCLE_MEDIUM);
-        break;
-    case fanMinimum:
-        exerciseFan(FAN_DUTYCYCLE_MINIMUM);
-        break;
-    case batteryVoltage:
-        exerciseBatteryVoltage();
-        break;
-    case fanRPM:
-        exerciseFanSpeed();
-        break;
-    }
+    (*exercises[currentExercise])();
     endExercise();
 }
 
 // Handler for Fan Button Down
 // This button runs the fan-button-down exercise.
 void onButtonDownChange(const int state) {
-    if (state == HIGH) {
+    if (state == BUTTON_RELEASED) {
         startExercise();
         exerciseEachLED(0, numLEDs - 1, DELAY_500ms);
         endExercise();
@@ -313,9 +271,9 @@ void onButtonDownChange(const int state) {
 // Handler for Fan Button Up
 // This button advances to the next exercise.
 void onButtonUpChange(const int state) {
-    if (state == HIGH) {
+    if (state == BUTTON_RELEASED) {
         // advance to the next exercise
-        doExercise(nextExercise(currentExercise));
+        doNextExercise();
     }
 }
 
@@ -330,7 +288,8 @@ void setup() {
     fanController.begin();
 
     // Do our startup exercise
-    doExercise(begin);
+    currentExercise = -1;
+    doNextExercise();
 }
 
 void loop() {
