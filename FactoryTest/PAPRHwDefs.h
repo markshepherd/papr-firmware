@@ -8,24 +8,24 @@
 
 //================================================================
 // OUTPUT PINS
-#define FAN_PWM_PIN                 5   /* PD5 */  /* Analog 0-255 duty cycle */
-#define BATTERY_LED_1_PIN           A0  /* PC0 */  /* LOW = on, HIGH = off */
-#define BATTERY_LED_2_PIN           A1  /* PC1 */  /* LOW = on, HIGH = off */
-#define BATTERY_LED_3_PIN           A2  /* PC2 */  /* LOW = on, HIGH = off */
-#define Error_LED_PIN               A3  /* PC3 */  /* LOW = on, HIGH = off */
-#define MODE_LED_1_PIN              A4  /* PC4 */  /* LOW = on, HIGH = off */
-#define MODE_LED_2_PIN              A5  /* PC5 */  /* LOW = on, HIGH = off */
-#define MODE_LED_3_PIN              0   /* PD0 */  /* LOW = on, HIGH = off */
-#define BUZZER_PIN                  10  /* PB2 */
-#define VIBRATOR_PIN                2   /* PD2 */
+#define FAN_PWM_PIN                 5   /* PD5 */  /* Analog: 0-255 duty cycle */
+#define BATTERY_LED_1_PIN           A0  /* PC0 */  /* Digital: LOW = on, HIGH = off */
+#define BATTERY_LED_2_PIN           A1  /* PC1 */  /* Digital: LOW = on, HIGH = off */
+#define BATTERY_LED_3_PIN           A2  /* PC2 */  /* Digital: LOW = on, HIGH = off */
+#define Error_LED_PIN               A3  /* PC3 */  /* Digital: LOW = on, HIGH = off */
+#define MODE_LED_1_PIN              A4  /* PC4 */  /* Digital: LOW = on, HIGH = off */
+#define MODE_LED_2_PIN              A5  /* PC5 */  /* Digital: LOW = on, HIGH = off */
+#define MODE_LED_3_PIN              0   /* PD0 */  /* Digital: LOW = on, HIGH = off */
+#define BUZZER_PIN                  10  /* PB2 */  /* Analog: 0-255 duty cycle */
+#define VIBRATOR_PIN                2   /* PD2 */  /* Digital: LOW = off, HIGH = on */
 
 //================================================================
 // INPUT PINS
-#define BATTERY_VOLTAGE_PIN         A7  /* PC7, ADC7 */
-#define Monitor_PIN                 7   /* PD7 */  /* LOW = power down button pushed */
-#define FAN_RPM_PIN                 3   /* PD3 */  /* Digital square wave, frequency proportional to RPM */
-#define FAN_UP_PIN                  1   /* PD1 */  /* LOW = pushed, HIGH = released */
-#define FAN_DOWN_PIN                9   /* PB1 */  /* LOW = pushed, HIGH = released */
+#define BATTERY_VOLTAGE_PIN         A7  /* PC7 */  /* Analog: values range from roughly 0x100 (6 volts) to 0x300 (24 volts) */
+#define Monitor_PIN                 7   /* PD7 */  /* Digital: LOW = power down button pushed */
+#define FAN_RPM_PIN                 3   /* PD3 */  /* Digital: square wave, frequency proportional to RPM */
+#define FAN_UP_PIN                  1   /* PD1 */  /* Digital: LOW = pushed, HIGH = released */
+#define FAN_DOWN_PIN                9   /* PB1 */  /* Digital: LOW = pushed, HIGH = released */
 
 //================================================================
 inline void configurePins() {
@@ -42,8 +42,8 @@ inline void configurePins() {
     // PD7 needs a pullup resistor
     PORTD = B10000000;
 
-    // If we were launched in Debug mode from Visual Micro, then the UART is probably enabled. We must
-    // turn off the USART, because it wants to use pins 0 and 1 (a.k.a. PORTD0 and PORTD1) which we are using for other things.
+    // If we were launched in Debug mode from Visual Micro, then the UART is probably enabled.
+    // Turn off the USART, because it wants to use pins 0 and 1 (a.k.a. PORTD0 and PORTD1) which we are using for other things.
     //bitClear(UCSR0B, RXEN0);
     //bitClear(UCSR0B, TXEN0);
     //bitClear(UCSR0B, RXCIE0);

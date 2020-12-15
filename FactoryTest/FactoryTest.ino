@@ -1,7 +1,7 @@
 /*
 *   FactoryTest.ino
 *
-* This file is the main program for factory testing of the v2 PAPR board.
+* This is the main program for the v2 PAPR board Factory Test app.
 *
 */
 
@@ -14,6 +14,7 @@ const int DELAY_200ms = 200;
 const int DELAY_500ms = 500;
 const int DELAY_1Sec = 1000;
 
+// These are all the exercises that this app performs, in the order that they are performed.
 enum Exercise {
     begin,
     buzzer,
@@ -25,7 +26,7 @@ enum Exercise {
     fanRPM,
     end
 };
-// Note - this list doesn't have exercises for the fan buttons, because the fan up button 
+// Note - this list doesn't include exercises for the fan buttons, because the fan up button 
 // is used to cycle through the sequence of exercises so it gets plenty of exercise, and the
 // fan down button has a separate exercise that is not part of the sequence.
 
@@ -33,7 +34,7 @@ enum Exercise {
  * LEDs
  ********************************************************************/
 
-// A list of all the LEDs, from left to right as they appear on the box.
+// A list of all the LEDs, from left to right as they appear on the board.
 byte LEDpins[] = {
     BATTERY_LED_1_PIN,
     BATTERY_LED_2_PIN,
@@ -44,6 +45,13 @@ byte LEDpins[] = {
     MODE_LED_3_PIN
 };
 const int numLEDs = sizeof(LEDpins) / sizeof(byte);
+
+// Turn off all LEDs
+void allLEDsOff() {
+    for (int i = 0; i < numLEDs; i += 1) {
+        digitalWrite(LEDpins[i], HIGH);
+    }
+}
 
 // Turn a single LED on, then off again.
 void flashLED(byte pin, unsigned long duration) {
@@ -89,11 +97,13 @@ void exerciseEachLED(int firstIndex, int lastIndex, int duration) {
     } while (1);
 }
 
-void displayStartTest() {
+// Give a sign to the user that an exercise has started 
+void startExercise() {
     exerciseEachLED(0, numLEDs - 1, 50);
 }
 
-void displayEndTest() {
+// Give a sign to the user that an exercise has ended 
+void endExercise() {
     exerciseEachLED(numLEDs - 1, 0, 50);
 }
 
@@ -101,12 +111,6 @@ void displayEndTest() {
 /********************************************************************
  * Temporary debug code, because we don't yet have a usable serial port or debugger.
  ********************************************************************/
-
-void allLEDsOff() {
-    for (int i = 0; i < numLEDs; i += 1) {
-        digitalWrite(LEDpins[i], HIGH);
-    }
-}
 
 void writeHexDigitToLights(int hexDigit) {
     allLEDsOff();
@@ -124,6 +128,13 @@ void writeHexDigitToLights(int hexDigit) {
     allLEDsOff();
 }
 
+// Write a 16-bit number to the LEDs, in hex. It looks like this ...
+//    all LEDs quickly flash, left to right
+//    high-order hex digit, in binary
+//    next hex digit, in binary
+//    next hex digit, in binary
+//    low-order hex digit, in binary
+//    all LEDs quickly flash, right to left
 void writeNumberToLights(uint16_t number) {
     exerciseEachLED(0, numLEDs - 1, 50);
 
@@ -146,6 +157,7 @@ void writeNumberToLights(uint16_t number) {
  * Buttons
  ********************************************************************/
 
+// The ButtonDebounce object polls the pin, and calls a callback when the pin value changes. There is one ButtonDebounce object per button.
 ButtonDebounce buttonFanUp(FAN_UP_PIN, DELAY_100ms);
 ButtonDebounce buttonFanDown(FAN_DOWN_PIN, DELAY_100ms);
 
@@ -153,7 +165,7 @@ ButtonDebounce buttonFanDown(FAN_DOWN_PIN, DELAY_100ms);
  * Fan
  ********************************************************************/
 
-// How many milliseconds between readings of the fan speed. A smaller value will update
+// How many milliseconds should there be between readings of the fan speed. A smaller value will update
 // more often, while a higher value will give more accurate and smooth readings.
 const int FAN_SPEED_READING_INTERVAL = 1000;
 
@@ -164,14 +176,26 @@ const int FAN_DUTYCYCLE_MEDIUM = 50;
 const int FAN_DUTYCYCLE_MAXIMUM = 100;
 
 void exerciseFan(int dutyCycle) {
-    displayStartTest();
     fanController.setDutyCycle(dutyCycle);
-    displayEndTest();
 }
 
 void exerciseFanSpeed() {
-    displayStartTest();
-    displayEndTest();
+    fanController.setDutyCycle(FAN_DUTYCYCLE_MEDIUM);
+
+    // wait for the fan to get up to speed
+    delay(DELAY_1Sec);
+
+    // read the speed
+    unsigned int speed = fanController.getSpeed();
+
+    if (speed > 65535) {
+        // speed is too big for writeNumberToLights
+        exerciseAllLEDs();
+    } else {
+        writeNumberToLights(speed);
+    }
+
+    fanController.setDutyCycle(FAN_DUTYCYCLE_MINIMUM);
 }
 
 /********************************************************************
@@ -179,36 +203,32 @@ void exerciseFanSpeed() {
  ********************************************************************/
 
 void exerciseBuzzer() {
-    displayStartTest();
     for (int i = 0; i < 3; i += 1) {
         analogWrite(BUZZER_PIN, 255);
         delay(DELAY_500ms);
         analogWrite(BUZZER_PIN, 0);
         delay(DELAY_500ms);
     }
-    displayEndTest();
 }
 
 void exerciseVibrator() {
-    displayStartTest();
     for (int i = 0; i < 3; i += 1) {
         digitalWrite(VIBRATOR_PIN, HIGH);
         delay(DELAY_500ms);
         digitalWrite(VIBRATOR_PIN, LOW);
         delay(DELAY_500ms);
     }
-    displayEndTest();
 }
 
 void exerciseBatteryVoltage() {
-    displayStartTest();
-
     // The battery readings we expect for minimum and maximum battery voltages.
+    // TODO: we probably need to get rid of these hard-coded constants, and use a better way to derive these numbers.
     const int readingAt12Volts = 386;
     const int readingAt24Volts = 784;
 
     // For the next 10 seconds we will display the battery voltage on the LEDs.
     // Empty battery = 1 LEDs. Full battery = 7 LEDs.
+    // As you change the input voltage, the LEDs will update accordingly.
     unsigned long startTime = millis();
     while (millis() - startTime < 10000) {
         // Read the current battery voltage and limit the value to the expected range.
@@ -216,7 +236,8 @@ void exerciseBatteryVoltage() {
         if (reading < readingAt12Volts) reading = readingAt12Volts;
         if (reading > readingAt24Volts) reading = readingAt24Volts;
 
-        // Calculate how full the battery is. This is a number between 0 and 1.
+        // Calculate how full the battery is. This will be a number between 0 and 1.
+        // (Note: we use floating point because it's easier than trying to do this in fixed point. The program memory impact appears to be negligible.)
         float fullness = float(reading - readingAt12Volts) / float(readingAt24Volts - readingAt12Volts);
 
         // Calculate how many of the 7 LEDs we should show. 
@@ -228,12 +249,10 @@ void exerciseBatteryVoltage() {
             digitalWrite(LEDpins[i], LOW);
         }
     }
-
-    displayEndTest();
 }
 
 /********************************************************************
- * Main program that drives the sequence of tests.
+ * Main program that drives the sequence of exercises.
  ********************************************************************/
 
 Exercise currentExercise;
@@ -251,6 +270,7 @@ Exercise nextExercise(Exercise e) {
 void doExercise(Exercise exercise) {
     currentExercise = exercise;
 
+    startExercise();
     switch (exercise) {
     case begin:
         exerciseAllLEDs();
@@ -277,18 +297,21 @@ void doExercise(Exercise exercise) {
         exerciseFanSpeed();
         break;
     }
+    endExercise();
 }
 
 // Handler for Fan Button Down
+// This button runs the fan-button-down exercise.
 void onButtonDownChange(const int state) {
     if (state == HIGH) {
-        displayStartTest();
+        startExercise();
         exerciseEachLED(0, numLEDs - 1, DELAY_500ms);
-        displayEndTest();
+        endExercise();
     }
 }
 
-// Handler for Fan Button Down
+// Handler for Fan Button Up
+// This button advances to the next exercise.
 void onButtonUpChange(const int state) {
     if (state == HIGH) {
         // advance to the next exercise
@@ -315,4 +338,5 @@ void loop() {
     // All the functionality of the app takes place in event handlers.
     buttonFanUp.update();
     buttonFanDown.update();
+    fanController.getSpeed(); // The fan controller speed function works better if we call it often.
 }
