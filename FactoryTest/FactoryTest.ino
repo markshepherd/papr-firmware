@@ -104,12 +104,24 @@ void exerciseEachLED(int firstIndex, int lastIndex, int duration) {
 
 // Give a sign to the user that an exercise has started 
 void startExercise() {
-    exerciseEachLED(0, numLEDs - 1, 50);
+    for (int i = 3; i >= 0; i -= 1) {
+        digitalWrite(LEDpins[i], LED_ON);
+        digitalWrite(LEDpins[6 - i], LED_ON);
+        delay(DELAY_100ms);
+        digitalWrite(LEDpins[i], LED_OFF);
+        digitalWrite(LEDpins[6 - i], LED_OFF);
+    }
 }
 
 // Give a sign to the user that an exercise has ended 
 void endExercise() {
-    exerciseEachLED(numLEDs - 1, 0, 50);
+    for (int i = 0; i <= 3; i += 1) {
+        digitalWrite(LEDpins[i], LED_ON);
+        digitalWrite(LEDpins[6 - i], LED_ON);
+        delay(DELAY_100ms);
+        digitalWrite(LEDpins[i], LED_OFF);
+        digitalWrite(LEDpins[6 - i], LED_OFF);
+    }
 }
 
 /********************************************************************
@@ -177,18 +189,6 @@ void exerciseFanMinimum() {
     exerciseFan(FAN_DUTYCYCLE_MINIMUM);
 }
 
-void exerciseFanSpeed() {
-    fanController.setDutyCycle(FAN_DUTYCYCLE_MEDIUM);
-
-    // wait for the fan to get up to speed
-    delay(DELAY_1Sec);
-
-    // display the speed on the lights
-    writeNumberToLights(fanController.getSpeed());
- 
-    fanController.setDutyCycle(FAN_DUTYCYCLE_MINIMUM);
-}
-
 /********************************************************************
  * Other Devices
  ********************************************************************/
@@ -198,15 +198,6 @@ void exerciseBuzzer() {
         analogWrite(BUZZER_PIN, 255);
         delay(DELAY_500ms);
         analogWrite(BUZZER_PIN, 0);
-        delay(DELAY_500ms);
-    }
-}
-
-void exerciseVibrator() {
-    for (int i = 0; i < 3; i += 1) {
-        digitalWrite(VIBRATOR_PIN, VIBRATOR_ON);
-        delay(DELAY_500ms);
-        digitalWrite(VIBRATOR_PIN, VIBRATOR_OFF);
         delay(DELAY_500ms);
     }
 }
@@ -238,12 +229,10 @@ void exerciseBatteryVoltage() {
 void (*exercises[])() = {
         exerciseAllLEDs,
         exerciseBuzzer,
-        exerciseVibrator,
         exerciseFanMaximum,
         exerciseFanMedium,
         exerciseFanMinimum,
-        exerciseBatteryVoltage,
-        exerciseFanSpeed
+        exerciseBatteryVoltage
 };
 const int numberOfExercises = sizeof(exercises) / sizeof(void (*)());
 
