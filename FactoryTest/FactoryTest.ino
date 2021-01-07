@@ -11,8 +11,12 @@
 
 const int DELAY_100ms = 100;
 const int DELAY_200ms = 200;
+const int DELAY_300ms = 300;
 const int DELAY_500ms = 500;
 const int DELAY_1Sec = 1000;
+const int DELAY_2Sec = 2000;
+const int DELAY_3Sec = 3000;
+const int DELAY_5Sec = 5000;
 
 // ----------------------- Button data -----------------------
 
@@ -32,6 +36,10 @@ const int FAN_DUTYCYCLE_MINIMUM = 0;
 const int FAN_DUTYCYCLE_MEDIUM = 50;
 const int FAN_DUTYCYCLE_MAXIMUM = 100;
 
+const unsigned int MINIMUM_EXPECTED_FAN_SPEED = 123;
+const unsigned int MEDIUM_EXPECTED_FAN_SPEED = 456;
+const unsigned int MAXIMUM_EXPECTED_FAN_SPEED = 789;
+
 // ----------------------- LED data -----------------------
 
 // A list of all the LEDs, from left to right as they appear on the board.
@@ -45,7 +53,6 @@ byte LEDpins[] = {
     MODE_LED_3_PIN
 };
 const int numLEDs = sizeof(LEDpins) / sizeof(byte);
-
 
 /********************************************************************
  * LEDs
@@ -84,9 +91,11 @@ void flashLEDs(unsigned long duration) {
 
 // Flash all the LEDs a few times
 void exerciseAllLEDs() {
+    delay(DELAY_300ms);
     for (int k = 0; k < 3; k += 1) {
-        flashLEDs(DELAY_200ms);
+        flashLEDs(DELAY_300ms);
     }
+    delay(DELAY_300ms);
 }
 
 // Flash all the LEDs, one at a time, starting with firstIndex, ending at lastIndex.
@@ -173,20 +182,30 @@ void writeNumberToLights(uint16_t number) {
  * Fan
  ********************************************************************/
 
-void exerciseFan(int dutyCycle) {
+void exerciseFan(int dutyCycle, unsigned int expectedSpeed) {
     fanController.setDutyCycle(dutyCycle);
+    unsigned int startTime = millis();
+    while (millis() - startTime < DELAY_3Sec) {
+        fanController.getSpeed(); // The fan controller speed function works better if we call it often.
+    }
+    unsigned int speed = fanController.getSpeed();
+    if ((speed < (0.8 * expectedSpeed)) || (speed > (1.2 * expectedSpeed))) {
+        // Show an error indication
+        exerciseAllLEDs();
+        exerciseAllLEDs();
+    }
 }
 
 void exerciseFanMaximum() {
-    exerciseFan(FAN_DUTYCYCLE_MAXIMUM);
+    exerciseFan(FAN_DUTYCYCLE_MAXIMUM, MAXIMUM_EXPECTED_FAN_SPEED);
 }
 
 void exerciseFanMedium() {
-    exerciseFan(FAN_DUTYCYCLE_MEDIUM);
+    exerciseFan(FAN_DUTYCYCLE_MEDIUM, MEDIUM_EXPECTED_FAN_SPEED);
 }
 
 void exerciseFanMinimum() {
-    exerciseFan(FAN_DUTYCYCLE_MINIMUM);
+    exerciseFan(FAN_DUTYCYCLE_MINIMUM, MINIMUM_EXPECTED_FAN_SPEED);
 }
 
 /********************************************************************
@@ -194,16 +213,16 @@ void exerciseFanMinimum() {
  ********************************************************************/
 
 void exerciseBuzzer() {
-    for (int i = 0; i < 3; i += 1) {
-        analogWrite(BUZZER_PIN, 255);
+    for (int i = 0; i < 8; i += 1) {
+        analogWrite(BUZZER_PIN, BUZZER_ON);
         delay(DELAY_500ms);
-        analogWrite(BUZZER_PIN, 0);
-        delay(DELAY_500ms);
+
+        analogWrite(BUZZER_PIN, BUZZER_OFF);
+        delay(DELAY_200ms);
     }
 }
 
 void exerciseBatteryVoltage() {
-
     // For the next 10 seconds we will display the battery voltage on the LEDs.
     // Empty battery = 1 LEDs. Full battery = 7 LEDs.
     // As you change the input voltage, the LEDs will update accordingly.
@@ -266,6 +285,21 @@ void onButtonUpChange(const int state) {
     }
 }
 
+void onMonitorActive()
+{
+    // The monitor input becomnes active when the user pushes the POWER OFF button.
+
+    // Turn on all LEDs
+    for (int i = 0; i < numLEDs; i += 1) {
+        digitalWrite(LEDpins[i], LED_ON);
+    }
+
+    // Turn on the buzzer
+    analogWrite(BUZZER_PIN, BUZZER_ON);
+
+    // Leave the lights and buzzer on. We will lose power in just a moment.
+}
+
 void setup() {
     // Initialize the hardware
     configurePins();
@@ -287,4 +321,8 @@ void loop() {
     buttonFanUp.update();
     buttonFanDown.update();
     fanController.getSpeed(); // The fan controller speed function works better if we call it often.
+    
+    if (digitalRead(Monitor_PIN) == LOW) {
+        onMonitorActive();
+    }
 }
