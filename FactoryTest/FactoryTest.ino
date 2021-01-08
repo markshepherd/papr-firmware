@@ -7,7 +7,7 @@
 * - the Arduino IDE compiles this with the instelled version of ButtonDebounce and FanController. Fix it so
 *   that it compiles the version of those libraries that is included in this app.
 * - maybe adjust some magic numbers, or find a more correct way of deriving them:
-*      - FAN_DUTYCYCLE_MEDIUM - what's the best wqy to choose this number? See the comments below.
+*      - FAN_DUTYCYCLE_MEDIUM - what's the best way to choose this number? See the comments below.
 *      - the EXPECTED_FAN_SPEEDs - determined empirically on my test harness, is this ok?
 *      - tolerance in fan speed test - is plus/minus 20% the right amount?
 *      - BUZZER_ON (in PAPRHwDefs.h) - what is the best duty cycle value? I chose it because (to me) it sounded the loudest and clearest
