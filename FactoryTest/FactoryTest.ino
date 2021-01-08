@@ -3,11 +3,20 @@
 *
 * This is the main program for the v2 PAPR board Factory Test app.
 *
+* TODO:
+* - the Arduino IDE compiles this with the instelled version of ButtonDebounce and FanController. Fix it so
+*   that it compiles the version of those libraries that is included in this app.
+* - maybe adjust some magic numbers, or find a more correct way of deriving them:
+*      - FAN_DUTYCYCLE_MEDIUM - what's the best wqy to choose this number? See the comments below.
+*      - the EXPECTED_FAN_SPEEDs - determined empirically on my test harness, is this ok?
+*      - tolerance in fan speed test - is plus/minus 20% the right amount?
+*      - BUZZER_ON (in PAPRHwDefs.h) - what is the best duty cycle value? I chose it because (to me) it sounded the loudest and clearest
+*      - readingAt12Volts/readingAt24Volts (in PAPRHwDefs.h) - determined empirically, is this ok?
 */
 
 #include "PAPRHwDefs.h"
-#include "ButtonDebounce.h"
-#include "FanController.h"
+#include "libraries/ButtonDebounce/src/ButtonDebounce.h"
+#include "libraries/FanController/FanController.h"
 
 const int DELAY_100ms = 100;
 const int DELAY_200ms = 200;
@@ -16,7 +25,6 @@ const int DELAY_500ms = 500;
 const int DELAY_1Sec = 1000;
 const int DELAY_2Sec = 2000;
 const int DELAY_3Sec = 3000;
-const int DELAY_5Sec = 5000;
 
 // ----------------------- Button data -----------------------
 
@@ -32,13 +40,18 @@ const int FAN_SPEED_READING_INTERVAL = 1000;
 
 FanController fanController(FAN_RPM_PIN, FAN_SPEED_READING_INTERVAL, FAN_PWM_PIN);
 
-const int FAN_DUTYCYCLE_MINIMUM = 0;
-const int FAN_DUTYCYCLE_MEDIUM = 50;
-const int FAN_DUTYCYCLE_MAXIMUM = 100;
+// The medium duty cycle is arbitrarily set at 50%.
+// A duty cycle of 32 results in an RPM of 9560, halfway between min and max RPM.
+// However, what we really want (I think) is for the medium duty cycle to produce an AIRFLOW halfway between min and max,
+// which could be determined empirically using a fully assembled PAPR unit.
+const byte FAN_DUTYCYCLE_MINIMUM = 0;
+const byte FAN_DUTYCYCLE_MEDIUM = 50;
+const byte FAN_DUTYCYCLE_MAXIMUM = 100;
 
-const unsigned int MINIMUM_EXPECTED_FAN_SPEED = 123;
-const unsigned int MEDIUM_EXPECTED_FAN_SPEED = 456;
-const unsigned int MAXIMUM_EXPECTED_FAN_SPEED = 789;
+// The expected fan speeds were empirically determined using a fan with completely unobstructed airflow.
+const unsigned int MINIMUM_EXPECTED_FAN_SPEED = 3123;
+const unsigned int MEDIUM_EXPECTED_FAN_SPEED = 12033; 
+const unsigned int MAXIMUM_EXPECTED_FAN_SPEED = 15994;
 
 // ----------------------- LED data -----------------------
 
@@ -149,7 +162,7 @@ void writeHexDigitToLights(int hexDigit) {
     digitalWrite(LEDpins[5], (hexDigit & 2) ? LED_ON : LED_OFF);
     digitalWrite(LEDpins[6], (hexDigit & 1) ? LED_ON : LED_OFF);
 
-    delay(DELAY_1Sec);
+    delay(DELAY_2Sec);
     allLEDsOff();
 }
 
@@ -164,16 +177,16 @@ void writeNumberToLights(uint16_t number) {
     exerciseEachLED(0, numLEDs - 1, 50);
 
     writeHexDigitToLights((number >> 12) & 0xf);
-    delay(DELAY_500ms);
+    delay(DELAY_1Sec);
 
     writeHexDigitToLights((number >> 8) & 0xf);
-    delay(DELAY_500ms);
+    delay(DELAY_1Sec);
 
     writeHexDigitToLights((number >> 4) & 0xf);
-    delay(DELAY_500ms);
+    delay(DELAY_1Sec);
 
     writeHexDigitToLights((number) & 0xf);
-    delay(DELAY_500ms);
+    delay(DELAY_1Sec);
 
     exerciseEachLED(numLEDs - 1, 0, 50);
 }
@@ -182,15 +195,23 @@ void writeNumberToLights(uint16_t number) {
  * Fan
  ********************************************************************/
 
-void exerciseFan(int dutyCycle, unsigned int expectedSpeed) {
+void exerciseFan(byte dutyCycle, unsigned int expectedSpeed) {
+    // Set the fan speed
     fanController.setDutyCycle(dutyCycle);
-    unsigned int startTime = millis();
+
+    // Wait a few seconds for the fan speed to stabilize
+    unsigned long startTime = millis();
     while (millis() - startTime < DELAY_3Sec) {
         fanController.getSpeed(); // The fan controller speed function works better if we call it often.
     }
+
+    // Check the fan speed
     unsigned int speed = fanController.getSpeed();
+    fanController.setDutyCycle(FAN_DUTYCYCLE_MINIMUM); // we don't need the fan running any more
+
+    // If the speed is too low or too high, show an error indication
     if ((speed < (0.8 * expectedSpeed)) || (speed > (1.2 * expectedSpeed))) {
-        // Show an error indication
+        writeNumberToLights(speed);
         exerciseAllLEDs();
         exerciseAllLEDs();
     }
@@ -213,7 +234,7 @@ void exerciseFanMinimum() {
  ********************************************************************/
 
 void exerciseBuzzer() {
-    for (int i = 0; i < 8; i += 1) {
+    for (int i = 0; i < 5; i += 1) {
         analogWrite(BUZZER_PIN, BUZZER_ON);
         delay(DELAY_500ms);
 
@@ -309,6 +330,9 @@ void setup() {
     buttonFanUp.setCallback(onButtonUpChange);
     buttonFanDown.setCallback(onButtonDownChange);
     fanController.begin();
+
+    // Set fan to default speed
+    fanController.setDutyCycle(FAN_DUTYCYCLE_MINIMUM);
 
     // Do our startup exercise
     currentExercise = -1;

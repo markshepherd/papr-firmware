@@ -77,7 +77,7 @@ inline void initializeDevices() {
 
 // Return battery fullness as a number between 0 (empty = 12 volts) and 100 (full = 24 volts).
 inline unsigned int readBatteryFullness() {
-    // Here are the battery readings we expect for minimum and maximum battery voltages.
+    // Here are the battery readings we expect for minimum and maximum battery voltages. These numbers were determined empirically.
     const int readingAt12Volts = 386;
     const int readingAt24Volts = 784;
 
