@@ -3,15 +3,6 @@
 *
 * This is the main program for the v2 PAPR board Factory Test app.
 *
-* TODO:
-* - the Arduino IDE compiles this with the instelled version of ButtonDebounce and FanController. Fix it so
-*   that it compiles the version of those libraries that is included in this app.
-* - maybe adjust some magic numbers, or find a more correct way of deriving them:
-*      - FAN_DUTYCYCLE_MEDIUM - what's the best way to choose this number? See the comments below.
-*      - the EXPECTED_FAN_SPEEDs - determined empirically on my test harness, is this ok?
-*      - tolerance in fan speed test - is plus/minus 20% the right amount?
-*      - BUZZER_ON (in PAPRHwDefs.h) - what is the best duty cycle value? I chose it because (to me) it sounded the loudest and clearest
-*      - readingAt12Volts/readingAt24Volts (in PAPRHwDefs.h) - determined empirically, is this ok?
 */
 
 #include "PAPRHwDefs.h"
@@ -22,9 +13,9 @@ const int DELAY_100ms = 100;
 const int DELAY_200ms = 200;
 const int DELAY_300ms = 300;
 const int DELAY_500ms = 500;
-const int DELAY_1Sec = 1000;
-const int DELAY_2Sec = 2000;
-const int DELAY_3Sec = 3000;
+const int DELAY_1sec = 1000;
+const int DELAY_2sec = 2000;
+const int DELAY_3sec = 3000;
 
 // ----------------------- Button data -----------------------
 
@@ -162,7 +153,7 @@ void writeHexDigitToLights(int hexDigit) {
     digitalWrite(LEDpins[5], (hexDigit & 2) ? LED_ON : LED_OFF);
     digitalWrite(LEDpins[6], (hexDigit & 1) ? LED_ON : LED_OFF);
 
-    delay(DELAY_2Sec);
+    delay(DELAY_2sec);
     allLEDsOff();
 }
 
@@ -177,16 +168,16 @@ void writeNumberToLights(uint16_t number) {
     exerciseEachLED(0, numLEDs - 1, 50);
 
     writeHexDigitToLights((number >> 12) & 0xf);
-    delay(DELAY_1Sec);
+    delay(DELAY_1sec);
 
     writeHexDigitToLights((number >> 8) & 0xf);
-    delay(DELAY_1Sec);
+    delay(DELAY_1sec);
 
     writeHexDigitToLights((number >> 4) & 0xf);
-    delay(DELAY_1Sec);
+    delay(DELAY_1sec);
 
     writeHexDigitToLights((number) & 0xf);
-    delay(DELAY_1Sec);
+    delay(DELAY_1sec);
 
     exerciseEachLED(numLEDs - 1, 0, 50);
 }
@@ -201,7 +192,7 @@ void exerciseFan(byte dutyCycle, unsigned int expectedSpeed) {
 
     // Wait a few seconds for the fan speed to stabilize
     unsigned long startTime = millis();
-    while (millis() - startTime < DELAY_3Sec) {
+    while (millis() - startTime < DELAY_3sec) {
         fanController.getSpeed(); // The fan controller speed function works better if we call it often.
     }
 
