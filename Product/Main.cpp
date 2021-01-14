@@ -183,7 +183,7 @@ void setFanSpeed(FanSpeed speed)
     currentFanSpeed = speed;
 
     // disable fan RPM monitor for a few seconds, until the new fan speed stabilizes
-    dontCheckFanSpeedUntil = hw.millis() + DELAY_3Sec;
+    dontCheckFanSpeedUntil = hw.millis() + DELAY_3sec;
 }
 
 // Call this periodically to check that the fan RPM is within the expected range for the current FanSpeed.
@@ -247,7 +247,7 @@ void updateBattery() {
     const unsigned int fullness = batteryFullnessAccumulator / numBatteryFullnessSamples;
 
     // ...Start a new averaging period
-    nextBatteryCheckMillis = now + DELAY_1Sec;
+    nextBatteryCheckMillis = now + DELAY_1sec;
     batteryFullnessAccumulator = 0;
     numBatteryFullnessSamples = 0;
 
