@@ -3,11 +3,6 @@
  *
  * The main program of the PAPR product firmware.
  * 
- * TODO
- * - empirically determine RPM and dutycycle for fan low/medium/high, presumably based on desired airflow.
- * - decide what voltage levels correspond to battery high, medium, and low.
- * - the allowable fan RPM range (lowestOkFanRPM and highestOkFanRPM) is too loose, but if we make it
- *   tighter (e.g. 0.8, 1.2), then there are frequent out-of-range alerts. Figure this out.
  */
 #include "Main.h"
 #include "PAPRHwDefs.h"
