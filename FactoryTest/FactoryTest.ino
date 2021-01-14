@@ -6,13 +6,16 @@
 */
 
 #include "PAPRHwDefs.h"
-#include "ButtonDebounce.h"
-#include "FanController.h"
+#include "libraries/ButtonDebounce/src/ButtonDebounce.h"
+#include "libraries/FanController/FanController.h"
 
 const int DELAY_100ms = 100;
 const int DELAY_200ms = 200;
+const int DELAY_300ms = 300;
 const int DELAY_500ms = 500;
-const int DELAY_1Sec = 1000;
+const int DELAY_1sec = 1000;
+const int DELAY_2sec = 2000;
+const int DELAY_3sec = 3000;
 
 // ----------------------- Button data -----------------------
 
@@ -28,9 +31,18 @@ const int FAN_SPEED_READING_INTERVAL = 1000;
 
 FanController fanController(FAN_RPM_PIN, FAN_SPEED_READING_INTERVAL, FAN_PWM_PIN);
 
-const int FAN_DUTYCYCLE_MINIMUM = 0;
-const int FAN_DUTYCYCLE_MEDIUM = 50;
-const int FAN_DUTYCYCLE_MAXIMUM = 100;
+// The medium duty cycle is arbitrarily set at 50%.
+// A duty cycle of 32 results in an RPM of 9560, halfway between min and max RPM.
+// However, what we really want (I think) is for the medium duty cycle to produce an AIRFLOW halfway between min and max,
+// which could be determined empirically using a fully assembled PAPR unit.
+const byte FAN_DUTYCYCLE_MINIMUM = 0;
+const byte FAN_DUTYCYCLE_MEDIUM = 50;
+const byte FAN_DUTYCYCLE_MAXIMUM = 100;
+
+// The expected fan speeds were empirically determined using a fan with completely unobstructed airflow.
+const unsigned int MINIMUM_EXPECTED_FAN_SPEED = 3123;
+const unsigned int MEDIUM_EXPECTED_FAN_SPEED = 12033; 
+const unsigned int MAXIMUM_EXPECTED_FAN_SPEED = 15994;
 
 // ----------------------- LED data -----------------------
 
@@ -45,7 +57,6 @@ byte LEDpins[] = {
     MODE_LED_3_PIN
 };
 const int numLEDs = sizeof(LEDpins) / sizeof(byte);
-
 
 /********************************************************************
  * LEDs
@@ -84,9 +95,11 @@ void flashLEDs(unsigned long duration) {
 
 // Flash all the LEDs a few times
 void exerciseAllLEDs() {
+    delay(DELAY_300ms);
     for (int k = 0; k < 3; k += 1) {
-        flashLEDs(DELAY_200ms);
+        flashLEDs(DELAY_300ms);
     }
+    delay(DELAY_300ms);
 }
 
 // Flash all the LEDs, one at a time, starting with firstIndex, ending at lastIndex.
@@ -104,12 +117,24 @@ void exerciseEachLED(int firstIndex, int lastIndex, int duration) {
 
 // Give a sign to the user that an exercise has started 
 void startExercise() {
-    exerciseEachLED(0, numLEDs - 1, 50);
+    for (int i = 3; i >= 0; i -= 1) {
+        digitalWrite(LEDpins[i], LED_ON);
+        digitalWrite(LEDpins[6 - i], LED_ON);
+        delay(DELAY_100ms);
+        digitalWrite(LEDpins[i], LED_OFF);
+        digitalWrite(LEDpins[6 - i], LED_OFF);
+    }
 }
 
 // Give a sign to the user that an exercise has ended 
 void endExercise() {
-    exerciseEachLED(numLEDs - 1, 0, 50);
+    for (int i = 0; i <= 3; i += 1) {
+        digitalWrite(LEDpins[i], LED_ON);
+        digitalWrite(LEDpins[6 - i], LED_ON);
+        delay(DELAY_100ms);
+        digitalWrite(LEDpins[i], LED_OFF);
+        digitalWrite(LEDpins[6 - i], LED_OFF);
+    }
 }
 
 /********************************************************************
@@ -128,7 +153,7 @@ void writeHexDigitToLights(int hexDigit) {
     digitalWrite(LEDpins[5], (hexDigit & 2) ? LED_ON : LED_OFF);
     digitalWrite(LEDpins[6], (hexDigit & 1) ? LED_ON : LED_OFF);
 
-    delay(DELAY_1Sec);
+    delay(DELAY_2sec);
     allLEDsOff();
 }
 
@@ -143,16 +168,16 @@ void writeNumberToLights(uint16_t number) {
     exerciseEachLED(0, numLEDs - 1, 50);
 
     writeHexDigitToLights((number >> 12) & 0xf);
-    delay(DELAY_500ms);
+    delay(DELAY_1sec);
 
     writeHexDigitToLights((number >> 8) & 0xf);
-    delay(DELAY_500ms);
+    delay(DELAY_1sec);
 
     writeHexDigitToLights((number >> 4) & 0xf);
-    delay(DELAY_500ms);
+    delay(DELAY_1sec);
 
     writeHexDigitToLights((number) & 0xf);
-    delay(DELAY_500ms);
+    delay(DELAY_1sec);
 
     exerciseEachLED(numLEDs - 1, 0, 50);
 }
@@ -161,32 +186,38 @@ void writeNumberToLights(uint16_t number) {
  * Fan
  ********************************************************************/
 
-void exerciseFan(int dutyCycle) {
+void exerciseFan(byte dutyCycle, unsigned int expectedSpeed) {
+    // Set the fan speed
     fanController.setDutyCycle(dutyCycle);
+
+    // Wait a few seconds for the fan speed to stabilize
+    unsigned long startTime = millis();
+    while (millis() - startTime < DELAY_3sec) {
+        fanController.getSpeed(); // The fan controller speed function works better if we call it often.
+    }
+
+    // Check the fan speed
+    unsigned int speed = fanController.getSpeed();
+    fanController.setDutyCycle(FAN_DUTYCYCLE_MINIMUM); // we don't need the fan running any more
+
+    // If the speed is too low or too high, show an error indication
+    if ((speed < (0.8 * expectedSpeed)) || (speed > (1.2 * expectedSpeed))) {
+        writeNumberToLights(speed);
+        exerciseAllLEDs();
+        exerciseAllLEDs();
+    }
 }
 
 void exerciseFanMaximum() {
-    exerciseFan(FAN_DUTYCYCLE_MAXIMUM);
+    exerciseFan(FAN_DUTYCYCLE_MAXIMUM, MAXIMUM_EXPECTED_FAN_SPEED);
 }
 
 void exerciseFanMedium() {
-    exerciseFan(FAN_DUTYCYCLE_MEDIUM);
+    exerciseFan(FAN_DUTYCYCLE_MEDIUM, MEDIUM_EXPECTED_FAN_SPEED);
 }
 
 void exerciseFanMinimum() {
-    exerciseFan(FAN_DUTYCYCLE_MINIMUM);
-}
-
-void exerciseFanSpeed() {
-    fanController.setDutyCycle(FAN_DUTYCYCLE_MEDIUM);
-
-    // wait for the fan to get up to speed
-    delay(DELAY_1Sec);
-
-    // display the speed on the lights
-    writeNumberToLights(fanController.getSpeed());
- 
-    fanController.setDutyCycle(FAN_DUTYCYCLE_MINIMUM);
+    exerciseFan(FAN_DUTYCYCLE_MINIMUM, MINIMUM_EXPECTED_FAN_SPEED);
 }
 
 /********************************************************************
@@ -194,25 +225,16 @@ void exerciseFanSpeed() {
  ********************************************************************/
 
 void exerciseBuzzer() {
-    for (int i = 0; i < 3; i += 1) {
-        analogWrite(BUZZER_PIN, 255);
+    for (int i = 0; i < 5; i += 1) {
+        analogWrite(BUZZER_PIN, BUZZER_ON);
         delay(DELAY_500ms);
-        analogWrite(BUZZER_PIN, 0);
-        delay(DELAY_500ms);
-    }
-}
 
-void exerciseVibrator() {
-    for (int i = 0; i < 3; i += 1) {
-        digitalWrite(VIBRATOR_PIN, VIBRATOR_ON);
-        delay(DELAY_500ms);
-        digitalWrite(VIBRATOR_PIN, VIBRATOR_OFF);
-        delay(DELAY_500ms);
+        analogWrite(BUZZER_PIN, BUZZER_OFF);
+        delay(DELAY_200ms);
     }
 }
 
 void exerciseBatteryVoltage() {
-
     // For the next 10 seconds we will display the battery voltage on the LEDs.
     // Empty battery = 1 LEDs. Full battery = 7 LEDs.
     // As you change the input voltage, the LEDs will update accordingly.
@@ -238,12 +260,10 @@ void exerciseBatteryVoltage() {
 void (*exercises[])() = {
         exerciseAllLEDs,
         exerciseBuzzer,
-        exerciseVibrator,
         exerciseFanMaximum,
         exerciseFanMedium,
         exerciseFanMinimum,
-        exerciseBatteryVoltage,
-        exerciseFanSpeed
+        exerciseBatteryVoltage
 };
 const int numberOfExercises = sizeof(exercises) / sizeof(void (*)());
 
@@ -277,6 +297,21 @@ void onButtonUpChange(const int state) {
     }
 }
 
+void onMonitorActive()
+{
+    // The monitor input becomnes active when the user pushes the POWER OFF button.
+
+    // Turn on all LEDs
+    for (int i = 0; i < numLEDs; i += 1) {
+        digitalWrite(LEDpins[i], LED_ON);
+    }
+
+    // Turn on the buzzer
+    analogWrite(BUZZER_PIN, BUZZER_ON);
+
+    // Leave the lights and buzzer on. We will lose power in just a moment.
+}
+
 void setup() {
     // Initialize the hardware
     configurePins();
@@ -286,6 +321,9 @@ void setup() {
     buttonFanUp.setCallback(onButtonUpChange);
     buttonFanDown.setCallback(onButtonDownChange);
     fanController.begin();
+
+    // Set fan to default speed
+    fanController.setDutyCycle(FAN_DUTYCYCLE_MINIMUM);
 
     // Do our startup exercise
     currentExercise = -1;
@@ -298,4 +336,8 @@ void loop() {
     buttonFanUp.update();
     buttonFanDown.update();
     fanController.getSpeed(); // The fan controller speed function works better if we call it often.
+    
+    if (digitalRead(Monitor_PIN) == LOW) {
+        onMonitorActive();
+    }
 }
