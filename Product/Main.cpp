@@ -225,7 +225,7 @@ unsigned int readBatteryFullness()
     if (reading < readingAt12Volts) reading = readingAt12Volts;
     if (reading > readingAt24Volts) reading = readingAt24Volts;
 
-    // Calculate how full the battery is. This will be a number between 0 and 1.
+    // Calculate how full the battery is. This will be a number between 0 and 100, inclusive.
     const float fullness = float(reading - readingAt12Volts) / float(readingAt24Volts - readingAt12Volts);
     return (unsigned int)(fullness * 100);
 }
