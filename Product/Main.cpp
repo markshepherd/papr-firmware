@@ -9,14 +9,13 @@
 #include "Hardware.h"
 #include <ButtonDebounce.h>
 #include <FanController.h>
-//#include "Debugging.h"
 
 // Use these when you call delay()
 const int DELAY_100ms = 100;
 const int DELAY_200ms = 200;
 const int DELAY_500ms = 500;
-const int DELAY_1Sec = 1000;
-const int DELAY_3Sec = 3000;
+const int DELAY_1sec = 1000;
+const int DELAY_3sec = 3000;
 
 // The Hardware object gives access to all the microcontroller hardware such as pins and timers. Please always use this object,
 // and never access any hardware or Arduino APIs directly. This gives us the abiity to use a fake hardware object for unit testing.
