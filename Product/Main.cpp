@@ -128,7 +128,7 @@ Timer alertTimer;
  * LEDs
  ********************************************************************/
 
- // Turn off all LEDs
+// Turn off all LEDs
 void allLEDsOff()
 {
     for (int i = 0; i < numLEDs; i += 1) {
@@ -218,7 +218,7 @@ void updateFan() {
  * Battery
  ********************************************************************/
 
- // Return battery fullness as a number between 0 (empty = 12 volts) and 100 (full = 24 volts).
+// Return battery fullness as a number between 0 (empty = 12 volts) and 100 (full = 24 volts).
 unsigned int readBatteryFullness()
 {
     uint16_t reading = hw.analogRead(BATTERY_VOLTAGE_PIN);
