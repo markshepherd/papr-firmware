@@ -156,7 +156,7 @@ void setLEDs(const int* pinList, int state)
  * Alerts
  ********************************************************************/
 
-// This 
+// This function pulses the lights and buzzer during an alert.
 void toggleAlert()
 {
     alertToggle = !alertToggle;
