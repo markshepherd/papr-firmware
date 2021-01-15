@@ -114,6 +114,7 @@
     <ClInclude Include="Hardware.h" />
     <ClInclude Include="Main.h" />
     <ClInclude Include="PAPRHwDefs.h" />
+    <ClInclude Include="Timer.h" />
     <ClInclude Include="__vm\.Product.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>

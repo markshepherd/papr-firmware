@@ -7,14 +7,13 @@
 #include "Main.h"
 #include "PAPRHwDefs.h"
 #include "Hardware.h"
+#include "Timer.h"
 #include <ButtonDebounce.h>
 #include <FanController.h>
 
 // Use these when you call delay()
 const int DELAY_100ms = 100;
-const int DELAY_200ms = 200;
 const int DELAY_500ms = 500;
-const int DELAY_1sec = 1000;
 const int DELAY_3sec = 3000;
 
 // The Hardware object gives access to all the microcontroller hardware such as pins and timers. Please always use this object,
@@ -104,22 +103,32 @@ unsigned long numBatteryFullnessSamples = 0;
  ********************************************************************/
 
 // The different kinds of alert we can present to the user.
-enum Alert {alertNone, alertBatteryLow, alertFanRPM };
-
-// LEDs to flash when there is a battery low alert
-const int batteryLowLEDs[] = { BATTERY_LED_LOW_PIN, BATTERY_LED_MED_PIN, BATTERY_LED_HIGH_PIN, -1 };
-
-// LEDs to flash when there is a fan RPM alert
-const int fanRPMLEDs[] = { FAN_LOW_LED_PIN, FAN_MED_LED_PIN, FAN_HIGH_LED_PIN, -1 };
+enum Alert { alertNone, alertBatteryLow, alertFanRPM };
 
 // Which LEDs to flash for each type of alert.
+const int batteryLowLEDs[] = { BATTERY_LED_LOW_PIN, BATTERY_LED_MED_PIN, BATTERY_LED_HIGH_PIN, ERROR_LED_PIN , -1 };
+const int fanRPMLEDs[] = { FAN_LOW_LED_PIN, FAN_MED_LED_PIN, FAN_HIGH_LED_PIN, ERROR_LED_PIN, -1 };
 const int* alertLEDs[] = { 0, batteryLowLEDs, fanRPMLEDs };
+
+// What are the on & off durations for the pulsed lights and buzzer for each type of alert. 
+const int batteryAlertMillis[] = { 1000, 1000 };
+const int fanAlertMillis[] = { 200, 200 };
+const int* alertMillis[] = { 0, batteryAlertMillis, fanAlertMillis };
+
+// Data used when we are in the alert state.
+Alert currentAlert = alertNone;
+const int* currentAlertLEDs;
+const int* currentAlertMillis;
+bool alertToggle;
+
+// The timer that pulses the lights and buzzer during an alert.
+Timer alertTimer;
 
 /********************************************************************
  * LEDs
  ********************************************************************/
 
-// Turn off all LEDs
+ // Turn off all LEDs
 void allLEDsOff()
 {
     for (int i = 0; i < numLEDs; i += 1) {
@@ -127,44 +136,45 @@ void allLEDsOff()
     }
 }
 
+// Turn on all LEDs
+void allLEDsOn()
+{
+    for (int i = 0; i < numLEDs; i += 1) {
+        hw.digitalWrite(LEDpins[i], LED_ON);
+    }
+}
+
+// Set a list of LEDs to a given state.
+void setLEDs(const int* pinList, int state)
+{
+    for (int i = 0; pinList[i] != -1; i += 1) {
+        hw.digitalWrite(pinList[i], state);
+    }
+}
+
 /********************************************************************
  * Alerts
  ********************************************************************/
 
-// Enter the "alert" state. In this state we pulse the lights, buzzer, and/or fan to 
-// alert the user to an alert condition. Once we are in this state, the only
+// This 
+void toggleAlert()
+{
+    alertToggle = !alertToggle;
+    setLEDs(currentAlertLEDs, alertToggle ? LED_ON : LED_OFF);
+    hw.analogWrite(BUZZER_PIN, alertToggle ? BUZZER_ON : BUZZER_OFF);
+    alertTimer.start(toggleAlert, currentAlertMillis[alertToggle ? 0 : 1]);
+}
+
+// Enter the "alert" state. In this state we pulse the lights and buzzer to 
+// alert the user to a problem. Once we are in this state, the only
 // way out is for the user to turn the power off.
 void enterAlertState(Alert alert)
 {
-    // Which LEDs should we flash?
-    const int* leds = alertLEDs[alert];
-
-    // Turn off all LEDs
-    for (int i = 0; i < numLEDs; i += 1) {
-        hw.digitalWrite(LEDpins[i], LED_OFF);
-    }
-
-    // Should we pulse the fan?
-    bool pulseFan = alert == alertFanRPM;
-
-    // Flash the alert LEDs, sound the buzzer, and pulse the fan, until the user powers off.
-    while (1) {
-        hw.analogWrite(BUZZER_PIN, BUZZER_ON);
-        hw.digitalWrite(ERROR_LED_PIN, LED_ON);
-        for (int i = 0; leds[i] != -1; i += 1) {
-            hw.digitalWrite(leds[i], LED_ON);
-        }
-        if (pulseFan) fanController.setDutyCycle(fanDutyCycles[fanMedium]);
-        hw.delay(DELAY_500ms);
-
-        hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
-        hw.digitalWrite(ERROR_LED_PIN, LED_OFF);
-        for (int i = 0; leds[i] != -1; i += 1) {
-            hw.digitalWrite(leds[i], LED_OFF);
-        }
-        if (pulseFan) fanController.setDutyCycle(fanDutyCycles[fanLow]);
-        hw.delay(DELAY_200ms);
-    }
+    currentAlert = alert;
+    currentAlertLEDs = alertLEDs[alert];
+    currentAlertMillis = alertMillis[alert];
+    alertToggle = false;
+    alertTimer.start(toggleAlert, 1);
 }
 
 /********************************************************************
@@ -211,15 +221,7 @@ void updateFan() {
  // Return battery fullness as a number between 0 (empty = 12 volts) and 100 (full = 24 volts).
 unsigned int readBatteryFullness()
 {
-    // Read the current battery voltage. To smoothen the random variations in the
-    // reading, we take several readings and calculate the average.
-    const int numReadings = 10;
-    uint16_t reading = 0;
-    for (int i = 0; i < numReadings; i += 1) {
-        reading += hw.analogRead(BATTERY_VOLTAGE_PIN);
-        hw.delayMicroseconds(5);
-    }
-    reading = reading / numReadings;
+    uint16_t reading = hw.analogRead(BATTERY_VOLTAGE_PIN);
 
     // Limit the value to the allowed range.
     if (reading < readingAt12Volts) reading = readingAt12Volts;
@@ -247,7 +249,7 @@ void updateBattery() {
     const unsigned int fullness = batteryFullnessAccumulator / numBatteryFullnessSamples;
 
     // ...Start a new averaging period
-    nextBatteryCheckMillis = now + DELAY_1sec;
+    nextBatteryCheckMillis = now + DELAY_500ms;
     batteryFullnessAccumulator = 0;
     numBatteryFullnessSamples = 0;
 
@@ -291,9 +293,7 @@ void onMonitorChange(const int state)
         // Set the UI to "going away soon"
 
         // Turn on all LEDs, and the buzzer
-        for (int i = 0; i < numLEDs; i += 1) {
-            hw.digitalWrite(LEDpins[i], LED_ON);
-        }
+        allLEDsOn();
         hw.analogWrite(BUZZER_PIN, BUZZER_ON);
 
         // Leave the lights and buzzer on. We expect to lose power in just a moment.
@@ -329,6 +329,7 @@ void Main::loop()
     buttonFanUp.update();
     buttonFanDown.update();
     buttonPowerOff.update();
-    updateFan();
-    updateBattery();
+    alertTimer.update();
+    if (currentAlert != alertFanRPM) updateFan();
+    if (currentAlert != alertBatteryLow) updateBattery();
 }
