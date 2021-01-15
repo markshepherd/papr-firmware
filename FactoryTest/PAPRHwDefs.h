@@ -26,6 +26,9 @@ const int LED_OFF = HIGH;
 const int VIBRATOR_ON = HIGH;
 const int VIBRATOR_OFF = LOW;
 
+const int BUZZER_ON = 64; // I tried different numbers and this one sounded the best :)
+const int BUZZER_OFF = 0;
+
 //================================================================
 // INPUT PINS
 #define BATTERY_VOLTAGE_PIN         A7  /* PC7 */  /* Analog: values range from roughly 0x100 (6 volts) to 0x300 (24 volts) */
@@ -69,15 +72,12 @@ inline void initializeDevices() {
     PORTD = 0x01;
 
     // Buzzer off
-    analogWrite(BUZZER_PIN, 0);
-
-    // Vibrator off
-    digitalWrite(VIBRATOR_PIN, LOW);
+    analogWrite(BUZZER_PIN, BUZZER_OFF);
 }
 
 // Return battery fullness as a number between 0 (empty = 12 volts) and 100 (full = 24 volts).
 inline unsigned int readBatteryFullness() {
-    // Here are the battery readings we expect for minimum and maximum battery voltages.
+    // Here are the battery readings we expect for minimum and maximum battery voltages. These numbers were determined empirically.
     const int readingAt12Volts = 386;
     const int readingAt24Volts = 784;
 
