@@ -8,8 +8,13 @@
 #include "PAPRHwDefs.h"
 #include "Hardware.h"
 #include "Timer.h"
+#ifdef UNITTEST
+#include "MyButtonDebounce.h"
+#include "MyFanController.h"
+#else
 #include <ButtonDebounce.h>
 #include <FanController.h>
+#endif
 
 // Use these when you call delay()
 const int DELAY_100ms = 100;
@@ -235,7 +240,7 @@ unsigned int readBatteryFullness()
 // Call this periodically to update the battery level LEDs, and raise an alert if the level gets too low.
 void updateBattery() {
     // Don't update the LEDs too often. This smooths out any small variations.
-    const unsigned long now = millis();
+    const unsigned long now = hw.millis();
     if (now < nextBatteryCheckMillis || numBatteryFullnessSamples == 0) {
         // we have not reached the end of the averaging period. Gather a measurement.
         batteryFullnessAccumulator += readBatteryFullness();
@@ -296,10 +301,14 @@ void onMonitorChange(const int state)
         allLEDsOn();
         hw.analogWrite(BUZZER_PIN, BUZZER_ON);
 
-        // Leave the lights and buzzer on. We expect to lose power in just a moment.
-    } else {
-        // The user must have pushed and released the button very quickly, not long enough
-        // to actually shut off the power. Go back to normal.
+        // Now we wait to lose power, which should happen in just a moment.
+        // If the user releases the button before the power actually
+        // shuts down, then we will fall out of this loop.
+        while (buttonPowerOff.state() == BUTTON_PUSHED) { 
+            buttonPowerOff.update();
+        }
+
+        // The power off button wasn't pressed long enough to shut off the power. Go back to normal.
         allLEDsOff();
         hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
         setFanSpeed(currentFanSpeed); // to update the fan speed LEDs
