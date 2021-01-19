@@ -33,7 +33,10 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
+    <ClInclude Include="..\Main.h" />
     <ClInclude Include="..\PAPRHwDefs.h" />
+    <ClInclude Include="MyButtonDebounce.h" />
+    <ClInclude Include="MyFanController.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>

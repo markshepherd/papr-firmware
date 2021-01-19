@@ -9,8 +9,8 @@
 #include "Hardware.h"
 #include "Timer.h"
 #ifdef UNITTEST
-#include "MyButtonDebounce.h"
-#include "MyFanController.h"
+#include "UnitTest/MyButtonDebounce.h"
+#include "UnitTest/MyFanController.h"
 #else
 #include <ButtonDebounce.h>
 #include <FanController.h>
@@ -23,7 +23,7 @@ const int DELAY_3sec = 3000;
 
 // The Hardware object gives access to all the microcontroller hardware such as pins and timers. Please always use this object,
 // and never access any hardware or Arduino APIs directly. This gives us the abiity to use a fake hardware object for unit testing.
-extern Hardware& hw = Hardware::instance();
+Hardware& hw = Hardware::instance();
 
 /********************************************************************
  * Button data

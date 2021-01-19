@@ -1,4 +1,4 @@
-#include "../Libraries/ButtonDebounce/1.0.1/ButtonDebounce/src/ButtonDebounce.h"
+#include "MyButtonDebounce.h"
 
 ButtonDebounce::ButtonDebounce(int pin, unsigned long delay)
 {
