@@ -5,36 +5,10 @@
  * 
  */
 #include "Main.h"
-#include "PAPRHwDefs.h"
-#include "Timer.h"
 
-// Use these when you call delay()
-const int DELAY_100ms = 100;
-const int DELAY_500ms = 500;
-const int DELAY_3sec = 3000;
-
-// The Hardware object gives access to all the microcontroller hardware such as pins and timers. Please always use this object,
-// and never access any hardware or Arduino APIs directly. This gives us the abiity to use a fake hardware object for unit testing.
-//Hardware* hw;
-
-Main* Main::instance;
-
-unsigned long getMillis()
-{
-    return Main::instance->hw.millis();
-}
 
 /********************************************************************
- * Button data
- ********************************************************************/
-
-// The ButtonDebounce object polls a pin, and calls a callback when the pin value changes. There is one ButtonDebounce object per button.
-//ButtonDebounce* buttonFanUp;
-//ButtonDebounce* buttonFanDown;
-//ButtonDebounce* buttonPowerOff;
-
-/********************************************************************
- * Fan data
+ * Fan constants
  ********************************************************************/
 
 // How many milliseconds should there be between readings of the fan speed. A smaller value will update
@@ -54,21 +28,12 @@ const float highestOkFanRPM = 2.0;
 // The fan speed when we startup.
 const FanSpeed defaultFanSpeed = fanLow;
 
-// The object that controls and monitors the fan.
-//FanController* fanController;
-
-// The current fan speed selected by the user.
-FanSpeed currentFanSpeed;
-
-// After we change the fan speed, we stop checking the RPMs for a few seconds, to let the speed stabilize.
-unsigned long dontCheckFanSpeedUntil = 0;
-
 /********************************************************************
- * LED data
+ * LED constants
  ********************************************************************/
 
 // A list of all the LEDs, from left to right.
-extern const byte LEDpins[] = {
+const byte LEDpins[] = {
     BATTERY_LED_LOW_PIN,
     BATTERY_LED_MED_PIN,
     BATTERY_LED_HIGH_PIN,
@@ -77,10 +42,10 @@ extern const byte LEDpins[] = {
     FAN_MED_LED_PIN,
     FAN_HIGH_LED_PIN
 };
-extern const int numLEDs = sizeof(LEDpins) / sizeof(byte);
+const int numLEDs = sizeof(LEDpins) / sizeof(byte);
 
 /********************************************************************
- * Battery data
+ * Battery constants
  ********************************************************************/
 
 // Here are the raw battery readings we expect for minimum and maximum battery voltages. These numbers were determined empirically.
@@ -93,14 +58,8 @@ const int batteryHalfPercent = 45; // (17.4V) If the battery is above this value
 const int batteryLowPerent = 3;    // (12.3V) If the battery is above this value but less than half, we light the "low" LED
 // If the battery is below low, we raise a low battery alert
 
-// We don't check the battery level on every loop(). Rather, we average battery levels over
-// a second or so, to smooth out the minor variations.
-unsigned long nextBatteryCheckMillis = 0;
-unsigned long batteryFullnessAccumulator = 0;
-unsigned long numBatteryFullnessSamples = 0;
-
 /********************************************************************
- * Alert data
+ * Alert constants
  ********************************************************************/
 
 // Which LEDs to flash for each type of alert.
@@ -113,17 +72,13 @@ const int batteryAlertMillis[] = { 1000, 1000 };
 const int fanAlertMillis[] = { 200, 200 };
 const int* alertMillis[] = { 0, batteryAlertMillis, fanAlertMillis };
 
-// Data used when we are in the alert state.
-Alert currentAlert = alertNone;
-const int* currentAlertLEDs;
-const int* currentAlertMillis;
-bool alertToggle;
-
-// The timer that pulses the lights and buzzer during an alert.
-Timer alertTimer;
+// Use these to specify time intervals
+const int INTERVAL_100ms = 100;
+const int INTERVAL_500ms = 500;
+const int INTERVAL_3sec = 3000;
 
 /********************************************************************
- * LEDs
+ * LED
  ********************************************************************/
 
 // Turn off all LEDs
@@ -151,16 +106,21 @@ void Main::setLEDs(const int* pinList, int state)
 }
 
 /********************************************************************
- * Alerts
+ * Alert
  ********************************************************************/
 
+void Main::onToggleAlert()
+{
+    instance->realOnToggleAlert();
+}
+
 // This function pulses the lights and buzzer during an alert.
-void Main::toggleAlert()
+void Main::realOnToggleAlert()
 {
     alertToggle = !alertToggle;
     instance->setLEDs(currentAlertLEDs, alertToggle ? LED_ON : LED_OFF);
     instance->hw.analogWrite(BUZZER_PIN, alertToggle ? BUZZER_ON : BUZZER_OFF);
-    alertTimer.start(toggleAlert, currentAlertMillis[alertToggle ? 0 : 1]);
+    alertTimer.start(onToggleAlert, currentAlertMillis[alertToggle ? 0 : 1]);
 }
 
 // Enter the "alert" state. In this state we pulse the lights and buzzer to 
@@ -172,7 +132,7 @@ void Main::enterAlertState(Alert alert)
     currentAlertLEDs = alertLEDs[alert];
     currentAlertMillis = alertMillis[alert];
     alertToggle = false;
-    alertTimer.start(toggleAlert, 1);
+    alertTimer.start(onToggleAlert, 1);
 }
 
 /********************************************************************
@@ -191,7 +151,7 @@ void Main::setFanSpeed(FanSpeed speed)
     currentFanSpeed = speed;
 
     // disable fan RPM monitor for a few seconds, until the new fan speed stabilizes
-    dontCheckFanSpeedUntil = hw.millis() + DELAY_3sec;
+    dontCheckFanSpeedUntil = hw.millis() + INTERVAL_3sec;
 }
 
 // Call this periodically to check that the fan RPM is within the expected range for the current FanSpeed.
@@ -247,7 +207,7 @@ void Main::updateBattery() {
     const unsigned int fullness = batteryFullnessAccumulator / numBatteryFullnessSamples;
 
     // ...Start a new averaging period
-    nextBatteryCheckMillis = now + DELAY_500ms;
+    nextBatteryCheckMillis = now + INTERVAL_500ms;
     batteryFullnessAccumulator = 0;
     numBatteryFullnessSamples = 0;
 
@@ -268,11 +228,15 @@ void Main::updateBattery() {
     }
 }
 
+/********************************************************************
+ * Events
+ ********************************************************************/
+
 // Handler for Fan Down button
 void Main::onFanDownButtonChange(const int state)
 {
     if (state == BUTTON_RELEASED) {
-        instance->setFanSpeed((currentFanSpeed == fanHigh) ? fanMedium : fanLow);
+        instance->setFanSpeed((instance->currentFanSpeed == fanHigh) ? fanMedium : fanLow);
     }
 }
 
@@ -280,15 +244,17 @@ void Main::onFanDownButtonChange(const int state)
 void Main::onFanUpButtonChange(const int state)
 {
     if (state == BUTTON_RELEASED) {
-        instance->setFanSpeed((currentFanSpeed == fanLow) ? fanMedium : fanHigh);
+        instance->setFanSpeed((instance->currentFanSpeed == fanLow) ? fanMedium : fanHigh);
     }
 }
+
+// Handler for the Power Off button
 void Main::onMonitorChange(const int state)
 {
     instance->realOnMonitorChange(state);
 }
 
-// Handler for the Power Off button
+// The real handler for the Power Off button
 void Main::realOnMonitorChange(const int state)
 {
     if (state == BUTTON_PUSHED) {
@@ -311,6 +277,19 @@ void Main::realOnMonitorChange(const int state)
         setFanSpeed(currentFanSpeed); // to update the fan speed LEDs
         // The battery level indicator will be updated by updateBattery() on the next call to loop().
     }
+}
+
+/********************************************************************
+ * Startup and run
+ ********************************************************************/
+
+Main::Main() :
+    buttonFanUp(FAN_UP_PIN, INTERVAL_100ms),
+    buttonFanDown(FAN_DOWN_PIN, INTERVAL_100ms),
+    buttonPowerOff(MONITOR_PIN, INTERVAL_100ms),
+    fanController(FAN_RPM_PIN, FAN_SPEED_READING_INTERVAL, FAN_PWM_PIN)
+{
+    instance = this;
 }
 
 void Main::setup()
@@ -338,4 +317,11 @@ void Main::loop()
     alertTimer.update();
     if (currentAlert != alertFanRPM) updateFan();
     if (currentAlert != alertBatteryLow) updateBattery();
+}
+
+Main* Main::instance;
+
+unsigned long getMillis()
+{
+    return Main::instance->millis();
 }
