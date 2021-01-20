@@ -1,30 +1,21 @@
-//#include "gmock/gmock.h"  // Brings in gMock.
+#pragma once
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-#define BTN_CALLBACK void (*callback)(int)
-
 class ButtonDebounce {
 public:
-    ButtonDebounce(int pin, unsigned long delay);
-    MOCK_METHOD(void, PenUp, (), (override));
-    MOCK_METHOD(void, PenDown, (), (override));
-    MOCK_METHOD(void, Forward, (int distance), (override));
-    MOCK_METHOD(void, Turn, (int degrees), (override));
-    MOCK_METHOD(void, GoTo, (int x, int y), (override));
-    MOCK_METHOD(int, GetX, (), (const, override));
-    MOCK_METHOD(int, GetY, (), (const, override));
-};
+    ButtonDebounce() : _callback(0) {}
 
-/*
-class ButtonDebounce {
+    void setCallback(void (*callback)(int))
+    {
+        _callback = callback;
+        setCallback_();
+    }
+
+    MOCK_METHOD(void, update, (), ());
+    MOCK_METHOD(int, state, (), ());
+    MOCK_METHOD(void, setCallback_, (), ());
+
 public:
-    ButtonDebounce(int pin, unsigned long delay);
-    bool isTimeToUpdate();
-    void update();
-    int state();
-    void setCallback(BTN_CALLBACK);
-
-private:
-    BTN_CALLBACK;
+    void (*_callback)(int);
 };
-*/

@@ -9,7 +9,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ButtonDebounce-1.0.1", "Lib
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FanController-1.0.6", "Libraries\FanController\1.0.6\FanController\FanController-1.0.6.vcxitems", "{1DBE61D4-AD73-4869-82C5-1C4556750206}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTest", "UnitTest\UnitTest.vcxproj", "{E88A5D46-03CA-4A40-8CE7-8C4664CE068E}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTest", "UnitTest\UnitTest.vcxproj", "{A25E7A95-0F46-40DE-9AE8-CA75352F21EE}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
@@ -31,14 +31,14 @@ Global
 		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|x64.ActiveCfg = Release|Win32
 		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|x86.ActiveCfg = Release|Win32
 		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|x86.Build.0 = Release|Win32
-		{E88A5D46-03CA-4A40-8CE7-8C4664CE068E}.Debug|x64.ActiveCfg = Debug|x64
-		{E88A5D46-03CA-4A40-8CE7-8C4664CE068E}.Debug|x64.Build.0 = Debug|x64
-		{E88A5D46-03CA-4A40-8CE7-8C4664CE068E}.Debug|x86.ActiveCfg = Debug|Win32
-		{E88A5D46-03CA-4A40-8CE7-8C4664CE068E}.Debug|x86.Build.0 = Debug|Win32
-		{E88A5D46-03CA-4A40-8CE7-8C4664CE068E}.Release|x64.ActiveCfg = Release|x64
-		{E88A5D46-03CA-4A40-8CE7-8C4664CE068E}.Release|x64.Build.0 = Release|x64
-		{E88A5D46-03CA-4A40-8CE7-8C4664CE068E}.Release|x86.ActiveCfg = Release|Win32
-		{E88A5D46-03CA-4A40-8CE7-8C4664CE068E}.Release|x86.Build.0 = Release|Win32
+		{A25E7A95-0F46-40DE-9AE8-CA75352F21EE}.Debug|x64.ActiveCfg = Debug|x64
+		{A25E7A95-0F46-40DE-9AE8-CA75352F21EE}.Debug|x64.Build.0 = Debug|x64
+		{A25E7A95-0F46-40DE-9AE8-CA75352F21EE}.Debug|x86.ActiveCfg = Debug|Win32
+		{A25E7A95-0F46-40DE-9AE8-CA75352F21EE}.Debug|x86.Build.0 = Debug|Win32
+		{A25E7A95-0F46-40DE-9AE8-CA75352F21EE}.Release|x64.ActiveCfg = Release|x64
+		{A25E7A95-0F46-40DE-9AE8-CA75352F21EE}.Release|x64.Build.0 = Release|x64
+		{A25E7A95-0F46-40DE-9AE8-CA75352F21EE}.Release|x86.ActiveCfg = Release|Win32
+		{A25E7A95-0F46-40DE-9AE8-CA75352F21EE}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

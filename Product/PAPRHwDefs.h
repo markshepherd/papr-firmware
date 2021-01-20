@@ -5,16 +5,16 @@
 */
 #pragma once
 #ifdef UNITTEST
-#define A0 20
-#define A1 21
-#define A2 22
-#define A3 23
-#define A4 24
-#define A5 25
-#define A6 26
-#define A7 27
-#define LOW 0
-#define HIGH 1
+const int A0 = 20;
+const int A1 = 21;
+const int A2 = 22;
+const int A3 = 23;
+const int A4 = 24;
+const int A5 = 25;
+const int A6 = 26;
+const int A7 = 27;
+const int LOW = 0;
+const int HIGH = 1;
 #else
 #include "Arduino.h"
 #endif

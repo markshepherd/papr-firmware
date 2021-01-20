@@ -10,27 +10,24 @@
  * - the unit test version, which runs on a PC and pretends to be a microcontroller.
  */
 #pragma once
-#include "stdint.h"
+#include "Arduino.h"
 
 class Hardware {
 public:
-    static Hardware& instance();
+    Hardware() {}
 
     // Covers for Arduino API functions.
-    void pinMode(uint8_t pin, uint8_t mode);
-    void digitalWrite(uint8_t pin, uint8_t val);
-    int digitalRead(uint8_t pin);
-    int analogRead(uint8_t pin);
-    void analogWrite(uint8_t pin, int val);
-    unsigned long millis(void);
-    void delay(unsigned long ms);
-    void delayMicroseconds(unsigned int us);
+    inline void pinMode(uint8_t pin, uint8_t mode) { ::pinMode(pin, mode); }
+    inline void digitalWrite(uint8_t pin, uint8_t val) { ::digitalWrite(pin, val); }
+    inline int digitalRead(uint8_t pin) { return ::digitalRead(pin); }
+    inline int analogRead(uint8_t pin) { return ::analogRead(pin); }
+    inline void analogWrite(uint8_t pin, int val) { ::analogWrite(pin, val); }
+    inline unsigned long millis(void) { return ::millis(); }
+    inline void delay(unsigned long ms) { ::delay(ms); }
+    inline void delayMicroseconds(unsigned int us) { ::delayMicroseconds(us); }
 
     // PAPR-specific hardware.
     void configurePins();
     void initializeDevices();
-
-private:
-    Hardware() {}
-    static Hardware hardwareInstance; // our singleton instance
 };
+
