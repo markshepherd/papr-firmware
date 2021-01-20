@@ -8,7 +8,7 @@
 #include "Hardware.h"
 #endif
 
-extern Hardware* hw;
+extern unsigned long getMillis();
 
 class Timer {
 public:
@@ -16,13 +16,13 @@ public:
 
     // schedules a callback to occur at the specified time interval from now
     void start(void (*callback)(), unsigned int intervalMillis) {
-        _when = hw->millis() + intervalMillis;
+        _when = getMillis() + intervalMillis;
         _callback = callback;
     }
 
     // call this from loop()
     void update() {
-        if (_when && hw->millis() > _when) {
+        if (_when && getMillis() > _when) {
             _when = 0;
             (*_callback)();
         }

@@ -16,105 +16,109 @@ class PAPRMainTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        main.init(&buttonFanUp, &buttonFanDown, &buttonPowerOff, &fanController, &hw);
+        // Check the stuff set up by the constructor
+        EXPECT_EQ(m.buttonFanDown._pin, FAN_DOWN_PIN);
+        EXPECT_EQ(m.buttonFanUp._pin, FAN_UP_PIN);
+        EXPECT_EQ(m.buttonPowerOff._pin, MONITOR_PIN);
+        EXPECT_EQ(m.buttonFanDown._delay, 100);
+        EXPECT_EQ(m.buttonFanUp._delay, 100);
+        EXPECT_EQ(m.buttonPowerOff._delay, 100);
+        EXPECT_EQ(m.fanController._sensorPin, FAN_RPM_PIN);
+        EXPECT_EQ(m.fanController._sensorThreshold, 1000);
+        EXPECT_EQ(m.fanController._pwmPin, FAN_PWM_PIN);
 
-        EXPECT_CALL(hw, millis()).Times(AnyNumber()).WillRepeatedly(Return(10000));
-        EXPECT_CALL(hw, configurePins()).Times(1).RetiresOnSaturation();
-        EXPECT_CALL(hw, initializeDevices()).Times(1).RetiresOnSaturation();
-        EXPECT_CALL(buttonFanUp, setCallback_()).Times(1).RetiresOnSaturation();
-        EXPECT_CALL(buttonFanDown, setCallback_()).Times(1).RetiresOnSaturation();
-        EXPECT_CALL(buttonPowerOff, setCallback_()).Times(1).RetiresOnSaturation();
-        EXPECT_CALL(fanController, begin()).Times(1).RetiresOnSaturation();
-        EXPECT_CALL(fanController, setDutyCycle(0)).Times(1).RetiresOnSaturation();
-        EXPECT_CALL(hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-        EXPECT_CALL(hw, digitalWrite(FAN_MED_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
-        EXPECT_CALL(hw, digitalWrite(FAN_HIGH_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
-        main.setup();
+        EXPECT_CALL(m.hw, millis()).Times(AnyNumber()).WillRepeatedly(Return(10000));
+        EXPECT_CALL(m.hw, configurePins()).Times(1).RetiresOnSaturation();
+        EXPECT_CALL(m.hw, initializeDevices()).Times(1).RetiresOnSaturation();
+        EXPECT_CALL(m.buttonFanUp, setCallback_()).Times(1).RetiresOnSaturation();
+        EXPECT_CALL(m.buttonFanDown, setCallback_()).Times(1).RetiresOnSaturation();
+        EXPECT_CALL(m.buttonPowerOff, setCallback_()).Times(1).RetiresOnSaturation();
+        EXPECT_CALL(m.fanController, begin()).Times(1).RetiresOnSaturation();
+        EXPECT_CALL(m.fanController, setDutyCycle(0)).Times(1).RetiresOnSaturation();
+        EXPECT_CALL(m.hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+        EXPECT_CALL(m.hw, digitalWrite(FAN_MED_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
+        EXPECT_CALL(m.hw, digitalWrite(FAN_HIGH_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
+        m.setup();
     }
 
-    ButtonDebounce buttonFanUp;
-    ButtonDebounce buttonFanDown;
-    ButtonDebounce buttonPowerOff;
-    FanController fanController;
-    Hardware hw;
-    Main main;
+    Main m;
 };
 
 TEST_F(PAPRMainTest, Loop)
 {
-    EXPECT_CALL(hw, analogRead(BATTERY_VOLTAGE_PIN)).Times(1).WillRepeatedly(Return(999)).RetiresOnSaturation();
-    EXPECT_CALL(buttonFanUp, update()).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(buttonFanDown, update()).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(buttonPowerOff, update()).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(fanController, getSpeed()).Times(1).RetiresOnSaturation();
-    main.loop();
+    EXPECT_CALL(m.hw, analogRead(BATTERY_VOLTAGE_PIN)).Times(1).WillRepeatedly(Return(999)).RetiresOnSaturation();
+    EXPECT_CALL(m.buttonFanUp, update()).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.buttonFanDown, update()).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.buttonPowerOff, update()).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.fanController, getSpeed()).Times(1).RetiresOnSaturation();
+    m.loop();
 }
 
 TEST_F(PAPRMainTest, ButtonUp)
 {
-    EXPECT_CALL(hw, digitalWrite(_, _)).Times(0);
-    EXPECT_CALL(fanController, setDutyCycle(_)).Times(0);
-    buttonFanUp._callback(BUTTON_PUSHED);
+    EXPECT_CALL(m.hw, digitalWrite(_, _)).Times(0);
+    EXPECT_CALL(m.fanController, setDutyCycle(_)).Times(0);
+    m.buttonFanUp._callback(BUTTON_PUSHED);
 
-    EXPECT_CALL(hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_MED_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_HIGH_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(fanController, setDutyCycle(50)).Times(1).RetiresOnSaturation();
-    buttonFanUp._callback(BUTTON_RELEASED);
-
-    // expect no mock calls
-    buttonFanUp._callback(BUTTON_PUSHED);
-
-    EXPECT_CALL(hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_MED_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_HIGH_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(fanController, setDutyCycle(100)).Times(1).RetiresOnSaturation();
-    buttonFanUp._callback(BUTTON_RELEASED);
+    EXPECT_CALL(m.hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_MED_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_HIGH_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.fanController, setDutyCycle(50)).Times(1).RetiresOnSaturation();
+    m.buttonFanUp._callback(BUTTON_RELEASED);
 
     // expect no mock calls
-    buttonFanUp._callback(BUTTON_PUSHED);
+    m.buttonFanUp._callback(BUTTON_PUSHED);
 
-    EXPECT_CALL(hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_MED_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_HIGH_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(fanController, setDutyCycle(100)).Times(1).RetiresOnSaturation();
-    buttonFanUp._callback(BUTTON_RELEASED);
+    EXPECT_CALL(m.hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_MED_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_HIGH_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.fanController, setDutyCycle(100)).Times(1).RetiresOnSaturation();
+    m.buttonFanUp._callback(BUTTON_RELEASED);
+
+    // expect no mock calls
+    m.buttonFanUp._callback(BUTTON_PUSHED);
+
+    EXPECT_CALL(m.hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_MED_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_HIGH_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.fanController, setDutyCycle(100)).Times(1).RetiresOnSaturation();
+    m.buttonFanUp._callback(BUTTON_RELEASED);
 }
 
 TEST_F(PAPRMainTest, ButtonDown)
 {
-    EXPECT_CALL(hw, digitalWrite(_, _)).Times(AnyNumber());
-    EXPECT_CALL(fanController, setDutyCycle(_)).Times(AnyNumber());
-    buttonFanUp._callback(BUTTON_PUSHED);
-    buttonFanUp._callback(BUTTON_RELEASED);
-    buttonFanUp._callback(BUTTON_PUSHED);
-    buttonFanUp._callback(BUTTON_RELEASED);
+    EXPECT_CALL(m.hw, digitalWrite(_, _)).Times(AnyNumber());
+    EXPECT_CALL(m.fanController, setDutyCycle(_)).Times(AnyNumber());
+    m.buttonFanUp._callback(BUTTON_PUSHED);
+    m.buttonFanUp._callback(BUTTON_RELEASED);
+    m.buttonFanUp._callback(BUTTON_PUSHED);
+    m.buttonFanUp._callback(BUTTON_RELEASED);
 
-    EXPECT_CALL(hw, digitalWrite(_, _)).Times(0);
-    EXPECT_CALL(fanController, setDutyCycle(_)).Times(0);
-    buttonFanDown._callback(BUTTON_PUSHED);
+    EXPECT_CALL(m.hw, digitalWrite(_, _)).Times(0);
+    EXPECT_CALL(m.fanController, setDutyCycle(_)).Times(0);
+    m.buttonFanDown._callback(BUTTON_PUSHED);
 
-    EXPECT_CALL(hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_MED_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_HIGH_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(fanController, setDutyCycle(50)).Times(1).RetiresOnSaturation();
-    buttonFanDown._callback(BUTTON_RELEASED);
-
-    // expect no mock calls
-    buttonFanDown._callback(BUTTON_PUSHED);
-
-    EXPECT_CALL(hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_MED_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_HIGH_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(fanController, setDutyCycle(0)).Times(1).RetiresOnSaturation();
-    buttonFanDown._callback(BUTTON_RELEASED);
+    EXPECT_CALL(m.hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_MED_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_HIGH_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.fanController, setDutyCycle(50)).Times(1).RetiresOnSaturation();
+    m.buttonFanDown._callback(BUTTON_RELEASED);
 
     // expect no mock calls
-    buttonFanDown._callback(BUTTON_PUSHED);
+    m.buttonFanDown._callback(BUTTON_PUSHED);
 
-    EXPECT_CALL(hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_MED_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(hw, digitalWrite(FAN_HIGH_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
-    EXPECT_CALL(fanController, setDutyCycle(0)).Times(1).RetiresOnSaturation();
-    buttonFanDown._callback(BUTTON_RELEASED);
+    EXPECT_CALL(m.hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_MED_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_HIGH_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.fanController, setDutyCycle(0)).Times(1).RetiresOnSaturation();
+    m.buttonFanDown._callback(BUTTON_RELEASED);
+
+    // expect no mock calls
+    m.buttonFanDown._callback(BUTTON_PUSHED);
+
+    EXPECT_CALL(m.hw, digitalWrite(FAN_LOW_LED_PIN, LED_ON)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_MED_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.hw, digitalWrite(FAN_HIGH_LED_PIN, LED_OFF)).Times(1).RetiresOnSaturation();
+    EXPECT_CALL(m.fanController, setDutyCycle(0)).Times(1).RetiresOnSaturation();
+    m.buttonFanDown._callback(BUTTON_RELEASED);
 }

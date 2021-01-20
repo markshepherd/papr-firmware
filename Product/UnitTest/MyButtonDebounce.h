@@ -4,7 +4,7 @@
 
 class ButtonDebounce {
 public:
-    ButtonDebounce() : _callback(0) {}
+    ButtonDebounce(int pin, unsigned long delay) : _callback(0), _pin(pin), _delay(delay) {}
 
     void setCallback(void (*callback)(int))
     {
@@ -18,4 +18,6 @@ public:
 
 public:
     void (*_callback)(int);
+    int _pin;
+    unsigned long _delay;
 };

@@ -15,16 +15,23 @@ const int DELAY_3sec = 3000;
 
 // The Hardware object gives access to all the microcontroller hardware such as pins and timers. Please always use this object,
 // and never access any hardware or Arduino APIs directly. This gives us the abiity to use a fake hardware object for unit testing.
-Hardware* hw;
+//Hardware* hw;
+
+Main* Main::instance;
+
+unsigned long getMillis()
+{
+    return Main::instance->hw.millis();
+}
 
 /********************************************************************
  * Button data
  ********************************************************************/
 
 // The ButtonDebounce object polls a pin, and calls a callback when the pin value changes. There is one ButtonDebounce object per button.
-ButtonDebounce* buttonFanUp;
-ButtonDebounce* buttonFanDown;
-ButtonDebounce* buttonPowerOff;
+//ButtonDebounce* buttonFanUp;
+//ButtonDebounce* buttonFanDown;
+//ButtonDebounce* buttonPowerOff;
 
 /********************************************************************
  * Fan data
@@ -33,9 +40,6 @@ ButtonDebounce* buttonPowerOff;
 // How many milliseconds should there be between readings of the fan speed. A smaller value will update
 // more often, while a higher value will give more accurate and smooth readings.
 const int FAN_SPEED_READING_INTERVAL = 1000;
-
-// The user can choose any of these speeds
-enum FanSpeed { fanLow, fanMedium, fanHigh };
 
 // The duty cycle for each fan speed.
 const byte fanDutyCycles[] = { 0, 50, 100 };
@@ -51,7 +55,7 @@ const float highestOkFanRPM = 2.0;
 const FanSpeed defaultFanSpeed = fanLow;
 
 // The object that controls and monitors the fan.
-FanController* fanController;
+//FanController* fanController;
 
 // The current fan speed selected by the user.
 FanSpeed currentFanSpeed;
@@ -99,9 +103,6 @@ unsigned long numBatteryFullnessSamples = 0;
  * Alert data
  ********************************************************************/
 
-// The different kinds of alert we can present to the user.
-enum Alert { alertNone, alertBatteryLow, alertFanRPM };
-
 // Which LEDs to flash for each type of alert.
 const int batteryLowLEDs[] = { BATTERY_LED_LOW_PIN, BATTERY_LED_MED_PIN, BATTERY_LED_HIGH_PIN, ERROR_LED_PIN , -1 };
 const int fanRPMLEDs[] = { FAN_LOW_LED_PIN, FAN_MED_LED_PIN, FAN_HIGH_LED_PIN, ERROR_LED_PIN, -1 };
@@ -126,26 +127,26 @@ Timer alertTimer;
  ********************************************************************/
 
 // Turn off all LEDs
-void allLEDsOff()
+void Main::allLEDsOff()
 {
     for (int i = 0; i < numLEDs; i += 1) {
-        hw->digitalWrite(LEDpins[i], LED_OFF);
+        hw.digitalWrite(LEDpins[i], LED_OFF);
     }
 }
 
 // Turn on all LEDs
-void allLEDsOn()
+void Main::allLEDsOn()
 {
     for (int i = 0; i < numLEDs; i += 1) {
-        hw->digitalWrite(LEDpins[i], LED_ON);
+        hw.digitalWrite(LEDpins[i], LED_ON);
     }
 }
 
 // Set a list of LEDs to a given state.
-void setLEDs(const int* pinList, int state)
+void Main::setLEDs(const int* pinList, int state)
 {
     for (int i = 0; pinList[i] != -1; i += 1) {
-        hw->digitalWrite(pinList[i], state);
+        hw.digitalWrite(pinList[i], state);
     }
 }
 
@@ -154,18 +155,18 @@ void setLEDs(const int* pinList, int state)
  ********************************************************************/
 
 // This function pulses the lights and buzzer during an alert.
-void toggleAlert()
+void Main::toggleAlert()
 {
     alertToggle = !alertToggle;
-    setLEDs(currentAlertLEDs, alertToggle ? LED_ON : LED_OFF);
-    hw->analogWrite(BUZZER_PIN, alertToggle ? BUZZER_ON : BUZZER_OFF);
+    instance->setLEDs(currentAlertLEDs, alertToggle ? LED_ON : LED_OFF);
+    instance->hw.analogWrite(BUZZER_PIN, alertToggle ? BUZZER_ON : BUZZER_OFF);
     alertTimer.start(toggleAlert, currentAlertMillis[alertToggle ? 0 : 1]);
 }
 
 // Enter the "alert" state. In this state we pulse the lights and buzzer to 
 // alert the user to a problem. Once we are in this state, the only
 // way out is for the user to turn the power off.
-void enterAlertState(Alert alert)
+void Main::enterAlertState(Alert alert)
 {
     currentAlert = alert;
     currentAlertLEDs = alertLEDs[alert];
@@ -179,28 +180,28 @@ void enterAlertState(Alert alert)
  ********************************************************************/
 
 // Set the fan to the indicated speed, and update the fan indicator LEDs.
-void setFanSpeed(FanSpeed speed)
+void Main::setFanSpeed(FanSpeed speed)
 {
-    fanController->setDutyCycle(fanDutyCycles[speed]);
+    fanController.setDutyCycle(fanDutyCycles[speed]);
     
-    hw->digitalWrite(FAN_LOW_LED_PIN,  LED_ON);
-    hw->digitalWrite(FAN_MED_LED_PIN,  speed >  fanLow  ? LED_ON : LED_OFF);
-    hw->digitalWrite(FAN_HIGH_LED_PIN, speed == fanHigh ? LED_ON : LED_OFF);
+    hw.digitalWrite(FAN_LOW_LED_PIN,  LED_ON);
+    hw.digitalWrite(FAN_MED_LED_PIN,  speed >  fanLow  ? LED_ON : LED_OFF);
+    hw.digitalWrite(FAN_HIGH_LED_PIN, speed == fanHigh ? LED_ON : LED_OFF);
 
     currentFanSpeed = speed;
 
     // disable fan RPM monitor for a few seconds, until the new fan speed stabilizes
-    dontCheckFanSpeedUntil = hw->millis() + DELAY_3sec;
+    dontCheckFanSpeedUntil = hw.millis() + DELAY_3sec;
 }
 
 // Call this periodically to check that the fan RPM is within the expected range for the current FanSpeed.
-void updateFan() {
-    const unsigned int fanRPM = fanController->getSpeed(); 
+void Main::updateFan() {
+    const unsigned int fanRPM = fanController.getSpeed(); 
     // Note: we call getSpeed() even if we're not going to use the result, because getSpeed() works better if you call it often.
 
     // If fan RPM checking is temporarily disabled, then do nothing.
     if (dontCheckFanSpeedUntil) {
-        if (dontCheckFanSpeedUntil > hw->millis()) return;
+        if (dontCheckFanSpeedUntil > hw.millis()) return;
         dontCheckFanSpeedUntil = 0;
     }
 
@@ -216,9 +217,9 @@ void updateFan() {
  ********************************************************************/
 
 // Return battery fullness as a number between 0 (empty = 12 volts) and 100 (full = 24 volts).
-unsigned int readBatteryFullness()
+unsigned int Main::readBatteryFullness()
 {
-    uint16_t reading = hw->analogRead(BATTERY_VOLTAGE_PIN);
+    uint16_t reading = hw.analogRead(BATTERY_VOLTAGE_PIN);
 
     // Limit the value to the allowed range.
     if (reading < readingAt12Volts) reading = readingAt12Volts;
@@ -230,9 +231,9 @@ unsigned int readBatteryFullness()
 }
 
 // Call this periodically to update the battery level LEDs, and raise an alert if the level gets too low.
-void updateBattery() {
+void Main::updateBattery() {
     // Don't update the LEDs too often. This smooths out any small variations.
-    const unsigned long now = hw->millis();
+    const unsigned long now = hw.millis();
     if (now < nextBatteryCheckMillis || numBatteryFullnessSamples == 0) {
         // we have not reached the end of the averaging period. Gather a measurement.
         batteryFullnessAccumulator += readBatteryFullness();
@@ -251,58 +252,62 @@ void updateBattery() {
     numBatteryFullnessSamples = 0;
 
     // Turn off all the battery LEDs
-    hw->digitalWrite(BATTERY_LED_LOW_PIN, LED_OFF);
-    hw->digitalWrite(BATTERY_LED_MED_PIN, LED_OFF);
-    hw->digitalWrite(BATTERY_LED_HIGH_PIN, LED_OFF);
+    hw.digitalWrite(BATTERY_LED_LOW_PIN, LED_OFF);
+    hw.digitalWrite(BATTERY_LED_MED_PIN, LED_OFF);
+    hw.digitalWrite(BATTERY_LED_HIGH_PIN, LED_OFF);
 
     // Turn on the LED corresponding to the current fullness
     if (fullness >= batteryFullPercent) {
-        hw->digitalWrite(BATTERY_LED_HIGH_PIN, LED_ON);
+        hw.digitalWrite(BATTERY_LED_HIGH_PIN, LED_ON);
     } else if (fullness >= batteryHalfPercent) {
-        hw->digitalWrite(BATTERY_LED_MED_PIN, LED_ON);
+        hw.digitalWrite(BATTERY_LED_MED_PIN, LED_ON);
     } else if (fullness >= batteryLowPerent) {
-        hw->digitalWrite(BATTERY_LED_LOW_PIN, LED_ON);
+        hw.digitalWrite(BATTERY_LED_LOW_PIN, LED_ON);
     } else {
         enterAlertState(alertBatteryLow);
     }
 }
 
 // Handler for Fan Down button
-void onFanDownButtonChange(const int state)
+void Main::onFanDownButtonChange(const int state)
 {
     if (state == BUTTON_RELEASED) {
-        setFanSpeed((currentFanSpeed == fanHigh) ? fanMedium : fanLow);
+        instance->setFanSpeed((currentFanSpeed == fanHigh) ? fanMedium : fanLow);
     }
 }
 
 // Handler for Fan Up button
-void onFanUpButtonChange(const int state)
+void Main::onFanUpButtonChange(const int state)
 {
     if (state == BUTTON_RELEASED) {
-        setFanSpeed((currentFanSpeed == fanLow) ? fanMedium : fanHigh);
+        instance->setFanSpeed((currentFanSpeed == fanLow) ? fanMedium : fanHigh);
     }
+}
+void Main::onMonitorChange(const int state)
+{
+    instance->realOnMonitorChange(state);
 }
 
 // Handler for the Power Off button
-void onMonitorChange(const int state)
+void Main::realOnMonitorChange(const int state)
 {
     if (state == BUTTON_PUSHED) {
         // Set the UI to "going away soon"
 
         // Turn on all LEDs, and the buzzer
         allLEDsOn();
-        hw->analogWrite(BUZZER_PIN, BUZZER_ON);
+        hw.analogWrite(BUZZER_PIN, BUZZER_ON);
 
         // Now we wait to lose power, which should happen in just a moment.
         // If the user releases the button before the power actually
         // shuts down, then we will fall out of this loop.
-        while (buttonPowerOff->state() == BUTTON_PUSHED) { 
-            buttonPowerOff->update();
+        while (buttonPowerOff.state() == BUTTON_PUSHED) { 
+            buttonPowerOff.update();
         }
 
         // The power off button wasn't pressed long enough to shut off the power. Go back to normal.
         allLEDsOff();
-        hw->analogWrite(BUZZER_PIN, BUZZER_OFF);
+        hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
         setFanSpeed(currentFanSpeed); // to update the fan speed LEDs
         // The battery level indicator will be updated by updateBattery() on the next call to loop().
     }
@@ -311,41 +316,26 @@ void onMonitorChange(const int state)
 void Main::setup()
 {
     // Initialize the hardware
-    hw->configurePins();
-    hw->initializeDevices();
+    hw.configurePins();
+    hw.initializeDevices();
 
     // Initialize the buttons
-    buttonFanUp->setCallback(onFanUpButtonChange);
-    buttonFanDown->setCallback(onFanDownButtonChange);
-    buttonPowerOff->setCallback(onMonitorChange);
+    buttonFanUp.setCallback(onFanUpButtonChange);
+    buttonFanDown.setCallback(onFanDownButtonChange);
+    buttonPowerOff.setCallback(onMonitorChange);
 
     // Initialize the fan
-    fanController->begin();
+    fanController.begin();
     setFanSpeed(defaultFanSpeed);
 }
 
 void Main::loop()
 {
     // Run various polling functions
-    buttonFanUp->update();
-    buttonFanDown->update();
-    buttonPowerOff->update();
+    buttonFanUp.update();
+    buttonFanDown.update();
+    buttonPowerOff.update();
     alertTimer.update();
     if (currentAlert != alertFanRPM) updateFan();
     if (currentAlert != alertBatteryLow) updateBattery();
-}
-
-void Main::init(
-    ButtonDebounce* pButtonFanUp,
-    ButtonDebounce* pButtonFanDown,
-    ButtonDebounce* pPowerOffButton,
-    FanController*  pFanController,
-    Hardware*       pHardware
-)
-{
-    buttonFanUp = pButtonFanUp;
-    buttonFanDown = pButtonFanDown;
-    buttonPowerOff = pPowerOffButton;
-    fanController = pFanController;
-    hw = pHardware;
 }
