@@ -132,7 +132,7 @@ void Main::enterAlertState(Alert alert)
     currentAlertLEDs = alertLEDs[alert];
     currentAlertMillis = alertMillis[alert];
     alertToggle = false;
-    alertTimer.start(onToggleAlert, 1);
+    realOnToggleAlert();
 }
 
 /********************************************************************
