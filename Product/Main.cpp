@@ -89,9 +89,15 @@ extern const int numLEDs = sizeof(LEDpins) / sizeof(byte);
  ********************************************************************/
 
 // Battery levels of interest to the UI. These are determined empirically.
-// TODO UPDATE THESE
-const int batteryFullLevel = 700; // (xx.xV) If the battery is above this value, we light the green LED
-const int batteryLowLevel = 500;  // (yy.yV) If the battery is above this value but less than full, we light the yellow LED
+/*
+measured:
+    full 21.6 volts = 703
+    cutoff 16.2 volts = 525
+    95% full = [est 20.6] volts = 669 TODO MEASURE FOR REAL
+    30 minutes left (before 16.2) = [est 17.0] volts = 552 TODO MEASURE FOR REAL
+*/
+const int batteryFullLevel = 669; // (xx.xV) If the battery is above this value, we light the green LED
+const int batteryLowLevel = 552;  // (yy.yV) If the battery is above this value but less than full, we light the yellow LED
                                   //         If the battery is below this value, we flash the red LED and pulse the buzzer
 
 // We don't check the battery level on every loop(). Rather, we average battery levels over
@@ -236,8 +242,9 @@ void updateBattery() {
 
     // The averaging period has ended...
 
-    // ...Calculate the battery fullness (0-100%) by taking the average of all the readings we made during the period.
+    // ...Calculate the battery level by taking the average of all the readings we made during the period.
     const unsigned int batteryLevel = batteryLevelAccumulator / numBatteryLevelSamples;
+    // myPrintf("battery level %d\r\n", batteryLevel);
 
     // ...Start a new averaging period
     nextBatteryCheckMillis = now + DELAY_500ms;
