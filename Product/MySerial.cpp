@@ -11,11 +11,11 @@ SoftwareSerial mySerial(serialRxPin, serialTxPin);
 
 void myPrintf(const char* __fmt, ...) {
 	va_list args;
-	char buffer[100];
+	char buffer[200];
 	va_start(args, __fmt);
 	vsnprintf(buffer, sizeof(buffer), __fmt, args);
 	va_end(args);
-    mySerial.print(buffer);
+	mySerial.print(buffer);
 }
 
 void initSerial() {
