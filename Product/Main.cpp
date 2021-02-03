@@ -91,12 +91,13 @@ extern const int numLEDs = sizeof(LEDpins) / sizeof(byte);
 // Battery levels of interest to the UI. These are determined empirically.
 /*
 measured:
-    full 21.6 volts = 703
+    25.2 volts = 819
+    21.6 volts = 703
     cutoff 16.2 volts = 525
-    95% full = [est 20.6] volts = 669 TODO MEASURE FOR REAL
+    95% full = [est 20.6] volts = 670 TODO MEASURE FOR REAL
     30 minutes left (before 16.2) = [est 17.0] volts = 552 TODO MEASURE FOR REAL
 */
-const int batteryFullLevel = 669; // (xx.xV) If the battery is above this value, we light the green LED
+const int batteryFullLevel = 670; // (xx.xV) If the battery is above this value, we light the green LED
 const int batteryLowLevel = 552;  // (yy.yV) If the battery is above this value but less than full, we light the yellow LED
                                   //         If the battery is below this value, we flash the red LED and pulse the buzzer
 
