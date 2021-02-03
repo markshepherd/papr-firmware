@@ -113,6 +113,7 @@
     <ClInclude Include="Debugging.h" />
     <ClInclude Include="Hardware.h" />
     <ClInclude Include="Main.h" />
+    <ClInclude Include="MySerial.h" />
     <ClInclude Include="PAPRHwDefs.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="__vm\.Product.vsarduino.h" />
@@ -121,6 +122,7 @@
     <ClCompile Include="Debugging.cpp" />
     <ClCompile Include="Hardware.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="MySerial.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

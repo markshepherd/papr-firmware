@@ -11,6 +11,12 @@
 #include <ButtonDebounce.h>
 #include <FanController.h>
 
+#undef MYSERIAL
+
+#ifdef MYSERIAL
+#include "MySerial.h"
+#endif
+
 // Use these when you call delay()
 const int DELAY_100ms = 100;
 const int DELAY_500ms = 500;
@@ -299,6 +305,11 @@ void Main::setup()
     // Initialize the hardware
     hw.configurePins();
     hw.initializeDevices();
+
+    #ifdef MYSERIAL
+    initSerial();
+    myPrintf("PAPR startup\r\n");
+    #endif
 
     // Initialize the buttons
     buttonFanUp.setCallback(onFanUpButtonChange);
