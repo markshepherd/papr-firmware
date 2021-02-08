@@ -5,15 +5,11 @@ VisualStudioVersion = 16.0.30717.126
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Product", "Product.vcxproj", "{C5F80730-F44F-4478-BDAE-6634EFC2CA88}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ButtonDebounce-1.0.1", "Libraries\ButtonDebounce\1.0.1\ButtonDebounce\ButtonDebounce-1.0.1.vcxitems", "{5F38BC4F-DCE3-411B-A98C-4C3A18D7DB84}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FanController-1.0.6", "Libraries\FanController\1.0.6\FanController\FanController-1.0.6.vcxitems", "{1DBE61D4-AD73-4869-82C5-1C4556750206}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		Libraries\FanController\1.0.6\FanController\FanController-1.0.6.vcxitems*{1dbe61d4-ad73-4869-82c5-1c4556750206}*SharedItemsImports = 9
-		Libraries\ButtonDebounce\1.0.1\ButtonDebounce\ButtonDebounce-1.0.1.vcxitems*{5f38bc4f-dce3-411b-a98c-4c3a18d7db84}*SharedItemsImports = 9
-		Libraries\ButtonDebounce\1.0.1\ButtonDebounce\ButtonDebounce-1.0.1.vcxitems*{c5f80730-f44f-4478-bdae-6634efc2ca88}*SharedItemsImports = 4
 		Libraries\FanController\1.0.6\FanController\FanController-1.0.6.vcxitems*{c5f80730-f44f-4478-bdae-6634efc2ca88}*SharedItemsImports = 4
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

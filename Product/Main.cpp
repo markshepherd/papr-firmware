@@ -8,7 +8,6 @@
 #include "PAPRHwDefs.h"
 #include "Hardware.h"
 #include "Timer.h"
-#include <ButtonDebounce.h>
 #include <FanController.h>
 
 #undef MYSERIAL
@@ -27,13 +26,57 @@ const int DELAY_3sec = 3000;
 extern Hardware& hw = Hardware::instance();
 
 /********************************************************************
- * Button data
+ * Long Button Press detector
  ********************************************************************/
 
-// The ButtonDebounce object polls a pin, and calls a callback when the pin value changes. There is one ButtonDebounce object per button.
-ButtonDebounce buttonFanUp(FAN_UP_PIN, DELAY_100ms);
-ButtonDebounce buttonFanDown(FAN_DOWN_PIN, DELAY_100ms);
-ButtonDebounce buttonPowerOff(MONITOR_PIN, DELAY_100ms);
+class LongPressDetector {
+private:
+    unsigned int _pin;
+    unsigned long _longPressMillis;
+    void (*_callback)(const int);
+    int _currentState;
+    unsigned long _pressMillis;
+    bool _callbackCalled;
+
+public:
+    LongPressDetector(int pin, unsigned long longPressMillis) : _pin(pin), _longPressMillis(longPressMillis) {
+        _currentState = digitalRead(_pin);
+        _pressMillis = hw.millis();
+    }
+
+    void update()
+    {
+        int state = digitalRead(_pin);
+
+        if (state == BUTTON_PUSHED) {
+            if (_currentState == BUTTON_PUSHED) {
+                // The button is already pressed. See if the button has been pressed long enough to be a long press.
+                if (!_callbackCalled && (hw.millis() - _pressMillis > _longPressMillis)) {
+                    _callback(state);
+                    _callbackCalled = true;
+                }
+            } else if (_currentState == BUTTON_RELEASED) {
+                // The button has just been pushed. Record the start time of this press.
+                _pressMillis = hw.millis();
+                _callbackCalled = false;
+            }
+        }
+        _currentState = state;
+    }
+
+    void onLongPress(void(*callback)(const int)) {
+        _callback = callback;
+    }
+};
+
+ /********************************************************************
+  * Button data
+  ********************************************************************/
+
+// The LongPressDetector object polls a button input pin, and calls a callback when a long press is detected. We use one LongPressDetector object per button.
+LongPressDetector buttonFanUp(FAN_UP_PIN, DELAY_500ms);
+LongPressDetector buttonFanDown(FAN_DOWN_PIN, DELAY_500ms);
+LongPressDetector buttonPowerOff(MONITOR_PIN, DELAY_100ms);
 
 /********************************************************************
  * Fan data
@@ -245,7 +288,6 @@ void updateBattery() {
 
     // ...Calculate the battery level by taking the average of all the readings we made during the period.
     const unsigned int batteryLevel = batteryLevelAccumulator / numBatteryLevelSamples;
-    // myPrintf("battery level %d\r\n", batteryLevel);
 
     // ...Start a new averaging period
     nextBatteryCheckMillis = now + DELAY_500ms;
@@ -272,19 +314,15 @@ void updateBattery() {
 }
 
 // Handler for Fan Down button
-void onFanDownButtonChange(const int state)
+void onFanDownLongPress(const int)
 {
-    if (state == BUTTON_RELEASED) {
-        setFanSpeed((currentFanSpeed == fanHigh) ? fanMedium : fanLow);
-    }
+    setFanSpeed((currentFanSpeed == fanHigh) ? fanMedium : fanLow);
 }
 
 // Handler for Fan Up button
-void onFanUpButtonChange(const int state)
+void onFanUpLongPress(const int)
 {
-    if (state == BUTTON_RELEASED) {
-        setFanSpeed((currentFanSpeed == fanLow) ? fanMedium : fanHigh);
-    }
+    setFanSpeed((currentFanSpeed == fanLow) ? fanMedium : fanHigh);
 }
 
 // Handler for the Power Off button
@@ -320,9 +358,9 @@ void Main::setup()
     #endif
 
     // Initialize the buttons
-    buttonFanUp.setCallback(onFanUpButtonChange);
-    buttonFanDown.setCallback(onFanDownButtonChange);
-    buttonPowerOff.setCallback(onMonitorChange);
+    buttonFanUp.onLongPress(onFanUpLongPress);
+    buttonFanDown.onLongPress(onFanDownLongPress);
+    buttonPowerOff.onLongPress(onMonitorChange);
 
     // Initialize the fan
     fanController.begin();
