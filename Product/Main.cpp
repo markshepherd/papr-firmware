@@ -284,7 +284,7 @@ void onMonitorPress(const int state)
     allLEDsOn();
     hw.analogWrite(BUZZER_PIN, BUZZER_ON);
 
-    // Wait for the power to go out, or for the user to release the button
+    // Wait until the power goes off, or the user releases the button.
     while (hw.digitalRead(MONITOR_PIN) == BUTTON_PUSHED) {}
 
     // The user must have pushed and released the button very quickly, not long enough
