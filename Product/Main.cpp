@@ -8,6 +8,7 @@
 #include "PAPRHwDefs.h"
 #include "Hardware.h"
 #include "Timer.h"
+#include "LongPressDetector.h"
 #include <FanController.h>
 
 #undef MYSERIAL
@@ -24,50 +25,6 @@ const int DELAY_3sec = 3000;
 // The Hardware object gives access to all the microcontroller hardware such as pins and timers. Please always use this object,
 // and never access any hardware or Arduino APIs directly. This gives us the abiity to use a fake hardware object for unit testing.
 extern Hardware& hw = Hardware::instance();
-
-/********************************************************************
- * Long Button Press detector
- ********************************************************************/
-
-class LongPressDetector {
-private:
-    unsigned int _pin;
-    unsigned long _longPressMillis;
-    void (*_callback)(const int);
-    int _currentState;
-    unsigned long _pressMillis;
-    bool _callbackCalled;
-
-public:
-    LongPressDetector(int pin, unsigned long longPressMillis) : _pin(pin), _longPressMillis(longPressMillis) {
-        _currentState = digitalRead(_pin);
-        _pressMillis = hw.millis();
-    }
-
-    void update()
-    {
-        int state = digitalRead(_pin);
-
-        if (state == BUTTON_PUSHED) {
-            if (_currentState == BUTTON_PUSHED) {
-                // The button is already pressed. See if the button has been pressed long enough to be a long press.
-                if (!_callbackCalled && (hw.millis() - _pressMillis > _longPressMillis)) {
-                    _callback(state);
-                    _callbackCalled = true;
-                }
-            } else if (_currentState == BUTTON_RELEASED) {
-                // The button has just been pushed. Record the start time of this press.
-                _pressMillis = hw.millis();
-                _callbackCalled = false;
-            }
-        }
-        _currentState = state;
-    }
-
-    void onLongPress(void(*callback)(const int)) {
-        _callback = callback;
-    }
-};
 
  /********************************************************************
   * Button data
@@ -329,16 +286,15 @@ void onFanUpLongPress(const int)
 void onMonitorChange(const int state)
 {
     if (state == BUTTON_PUSHED) {
-        // Set the UI to "going away soon"
-
         // Turn on all LEDs, and the buzzer
         allLEDsOn();
         hw.analogWrite(BUZZER_PIN, BUZZER_ON);
 
-        // Leave the lights and buzzer on. We expect to lose power in just a moment.
-    } else {
+        // Wait for the power to go out, or for the user to release the button
+        while (buttonPowerOff.state() == BUTTON_PUSHED) {}
+
         // The user must have pushed and released the button very quickly, not long enough
-        // to actually shut off the power. Go back to normal.
+        // for the machine to shut itself off. Go back to normal.
         allLEDsOff();
         hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
         setFanSpeed(currentFanSpeed); // to update the fan speed LEDs

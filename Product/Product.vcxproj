@@ -111,6 +111,7 @@
   <ItemGroup>
     <ClInclude Include="Debugging.h" />
     <ClInclude Include="Hardware.h" />
+    <ClInclude Include="LongPressDetector.h" />
     <ClInclude Include="Main.h" />
     <ClInclude Include="MySerial.h" />
     <ClInclude Include="PAPRHwDefs.h" />

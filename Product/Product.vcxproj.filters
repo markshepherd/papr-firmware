@@ -39,6 +39,9 @@
     <ClInclude Include="MySerial.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="LongPressDetector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Debugging.cpp">
