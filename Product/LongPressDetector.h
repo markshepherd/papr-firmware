@@ -15,8 +15,7 @@ private:
 
 public:
     LongPressDetector(int pin, unsigned long longPressMillis) : _pin(pin), _longPressMillis(longPressMillis) {
-        _currentState = digitalRead(_pin);
-        _pressMillis = millis();
+        _currentState = BUTTON_RELEASED;
     }
 
     void update()
@@ -30,7 +29,7 @@ public:
                     _callback(state);
                     _callbackCalled = true;
                 }
-            } else if (_currentState == BUTTON_RELEASED) {
+            } else {
                 // The button has just been pushed. Record the start time of this press.
                 _pressMillis = millis();
                 _callbackCalled = false;
