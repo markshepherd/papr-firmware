@@ -14,9 +14,9 @@ private:
     bool _callbackCalled;
 
 public:
-    LongPressDetector(int pin, unsigned long longPressMillis) : _pin(pin), _longPressMillis(longPressMillis) {
-        _currentState = BUTTON_RELEASED;
-    }
+    LongPressDetector(int pin, unsigned long longPressMillis, void(*callback)(const int))
+        : _pin(pin), _longPressMillis(longPressMillis), _callback(callback),
+        _currentState(BUTTON_RELEASED), _pressMillis(0), _callbackCalled(true) {}
 
     void update()
     {
@@ -36,13 +36,5 @@ public:
             }
         }
         _currentState = state;
-    }
-
-    int state() {
-        return digitalRead(_pin);
-    }
-
-    void onLongPress(void(*callback)(const int)) {
-        _callback = callback;
     }
 };

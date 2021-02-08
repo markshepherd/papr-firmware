@@ -26,15 +26,6 @@ const int DELAY_3sec = 3000;
 // and never access any hardware or Arduino APIs directly. This gives us the abiity to use a fake hardware object for unit testing.
 extern Hardware& hw = Hardware::instance();
 
- /********************************************************************
-  * Button data
-  ********************************************************************/
-
-// The LongPressDetector object polls a button input pin, and calls a callback when a long press is detected. We use one LongPressDetector object per button.
-LongPressDetector buttonFanUp(FAN_UP_PIN, DELAY_500ms);
-LongPressDetector buttonFanDown(FAN_DOWN_PIN, DELAY_500ms);
-LongPressDetector buttonPowerOff(MONITOR_PIN, DELAY_100ms);
-
 /********************************************************************
  * Fan data
  ********************************************************************/
@@ -270,6 +261,10 @@ void updateBattery() {
     }
 }
 
+/********************************************************************
+ * Button handlers
+ ********************************************************************/
+
 // Handler for Fan Down button
 void onFanDownLongPress(const int)
 {
@@ -283,24 +278,31 @@ void onFanUpLongPress(const int)
 }
 
 // Handler for the Power Off button
-void onMonitorChange(const int state)
+void onMonitorPress(const int state)
 {
-    if (state == BUTTON_PUSHED) {
-        // Turn on all LEDs, and the buzzer
-        allLEDsOn();
-        hw.analogWrite(BUZZER_PIN, BUZZER_ON);
+    // Turn on all LEDs, and the buzzer
+    allLEDsOn();
+    hw.analogWrite(BUZZER_PIN, BUZZER_ON);
 
-        // Wait for the power to go out, or for the user to release the button
-        while (buttonPowerOff.state() == BUTTON_PUSHED) {}
+    // Wait for the power to go out, or for the user to release the button
+    while (hw.digitalRead(MONITOR_PIN) == BUTTON_PUSHED) {}
 
-        // The user must have pushed and released the button very quickly, not long enough
-        // for the machine to shut itself off. Go back to normal.
-        allLEDsOff();
-        hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
-        setFanSpeed(currentFanSpeed); // to update the fan speed LEDs
-        // The battery level indicator will be updated by updateBattery() on the next call to loop().
-    }
+    // The user must have pushed and released the button very quickly, not long enough
+    // for the machine to shut itself off. Go back to normal.
+    allLEDsOff();
+    hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
+    setFanSpeed(currentFanSpeed); // to update the fan speed LEDs
+    // The battery level indicator will be updated by updateBattery() on the next call to loop().
 }
+
+// The LongPressDetector object polls a button input pin, and calls a callback when a long press is detected. We use one LongPressDetector object per button.
+LongPressDetector buttonFanUp(FAN_UP_PIN, DELAY_500ms, onFanUpLongPress);
+LongPressDetector buttonFanDown(FAN_DOWN_PIN, DELAY_500ms, onFanDownLongPress);
+LongPressDetector buttonPowerOff(MONITOR_PIN, DELAY_100ms, onMonitorPress);
+
+/********************************************************************
+ * Main
+ ********************************************************************/
 
 void Main::setup()
 {
@@ -313,11 +315,6 @@ void Main::setup()
     myPrintf("PAPR startup\r\n");
     #endif
 
-    // Initialize the buttons
-    buttonFanUp.onLongPress(onFanUpLongPress);
-    buttonFanDown.onLongPress(onFanDownLongPress);
-    buttonPowerOff.onLongPress(onMonitorChange);
-
     // Initialize the fan
     fanController.begin();
     setFanSpeed(defaultFanSpeed);
@@ -327,7 +324,6 @@ void Main::setup()
 
 void Main::loop()
 {
-    // Run various polling functions
     buttonFanUp.update();
     buttonFanDown.update();
     buttonPowerOff.update();
