@@ -298,7 +298,7 @@ void onMonitorPress(const int state)
 // The LongPressDetector object polls a button input pin, and calls a callback when a long press is detected. We use one LongPressDetector object per button.
 LongPressDetector buttonFanUp(FAN_UP_PIN, DELAY_500ms, onFanUpLongPress);
 LongPressDetector buttonFanDown(FAN_DOWN_PIN, DELAY_500ms, onFanDownLongPress);
-LongPressDetector buttonPowerOff(MONITOR_PIN, DELAY_100ms, onMonitorPress);
+LongPressDetector buttonPowerOff(MONITOR_PIN, 50, onMonitorPress);
 
 /********************************************************************
  * Main

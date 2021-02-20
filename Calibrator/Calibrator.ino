@@ -63,9 +63,19 @@ void endSamplePeriod()
     if (!skipReport) {
         unsigned int averageRPM = fanRPMAccumulator / sampleCount;
         unsigned int averageBatteryLevel = batteryLevelAccumulator / sampleCount;
-        myPrintf("Duty cycle %d, RPM min %d, avg %d, max %d, battery min %d, avg %d, max %d, tone %s, samples %ld\r\n",
+        float voltage;
+        if (currentDutyCycle == 0) {
+            voltage = ((averageBatteryLevel - 452) * 0.030612) + 14;
+        } else if (currentDutyCycle == 100) {
+            voltage = ((averageBatteryLevel - 436) * 0.029851) + 14;
+        } else {
+            voltage = 0;
+        }
+        myPrintf("Duty cycle %d, RPM min %d, avg %d, max %d, battery min %d, avg %d, max %d, voltage %d.%d, tone %s, samples %ld\r\n",
             currentDutyCycle, lowestFanRPM, averageRPM, highestFanRPM,
-            lowestBatteryLevel, averageBatteryLevel, highestBatteryLevel, toneOn ? "on" : "off", sampleCount);
+            lowestBatteryLevel, averageBatteryLevel, highestBatteryLevel,
+            (int)voltage, int(voltage * 10) - (int(voltage) * 10), 
+            toneOn ? "on" : "off", sampleCount);
     }
 }
 
@@ -133,10 +143,10 @@ void setup()
     fanController.begin();
     setFanDutyCycle(0);
     pinMode(FAN_LOW_LED_PIN, OUTPUT);
-    pinMode(FAN_HIGH_LED_PIN, OUTPUT);
+    pinMode(BATTERY_LED_MED_PIN, OUTPUT);
     pinMode(BATTERY_VOLTAGE_PIN, INPUT);
-    digitalWrite(FAN_LOW_LED_PIN, LED_OFF);
-    digitalWrite(FAN_HIGH_LED_PIN, LED_OFF);
+    digitalWrite(FAN_LOW_LED_PIN, LED_ON);
+    digitalWrite(BATTERY_LED_MED_PIN, LED_ON);
 }
 
 void loop()
