@@ -7,6 +7,7 @@
 #include <ButtonDebounce.h>
 #include "PAPRHwDefs.h"
 #include "Timer.h"
+#include "MySerial.h"
 
 struct SequenceItem {
     int frequency;
@@ -83,32 +84,6 @@ const SequenceItem sequence3[] = {
 const SequenceItem* sequences[] = { sequence1, sequence2, sequence3 };
 const int numberOfSequences = 3;
 
-const byte LEDpins[] = {
-    BATTERY_LED_LOW_PIN,
-    BATTERY_LED_MED_PIN,
-    BATTERY_LED_HIGH_PIN,
-    ERROR_LED_PIN,
-    FAN_LOW_LED_PIN,
-    FAN_MED_LED_PIN,
-    FAN_HIGH_LED_PIN
-};
-const int numLEDs = sizeof(LEDpins) / sizeof(byte);
-
-void setLEDs(int onOff)
-{
-    for (int i = 0; i < numLEDs; i += 1) {
-        digitalWrite(LEDpins[i], onOff);
-    }
-}
-
-void writeNumberToLights(unsigned int number)
-{
-    for (int i = 6; i >= 0; i -= 1) {
-        digitalWrite(LEDpins[i], (number & 1) ? LED_ON : LED_OFF);
-        number = number >> 1;
-    }
-}
-
 unsigned long currentFrequency;
 float currentDutyCycle;
 unsigned long prevFrequency;
@@ -122,6 +97,7 @@ void changeFrequency(unsigned long frequency)
     #else
         tone(BUZZER_PIN, frequency);
     #endif
+    writeFrequency(currentFrequency);
 }
 
 void changeDutyCycle(float dutyCycle)
@@ -130,6 +106,7 @@ void changeDutyCycle(float dutyCycle)
     #ifdef USE_TIMER1
         Timer1.setPwmDuty(BUZZER_PIN, dutyCycle * 1023);
     #endif
+    writeDutyCycle(currentDutyCycle);
 }
 
 void sequenceDone()
@@ -145,37 +122,43 @@ bool frequencyMode = true;
 Timer modeChangeTimer;
 Timer sequenceModeTimer;
 
-void writeFrequencyToLights(unsigned long frequency)
+Timer heartbeatTimer;
+bool heartbeatOn = false;
+
+void writeFrequency(unsigned long frequency)
 {
-    writeNumberToLights(frequency / 100);
+    myPrintf("Frequency %ld\r\n", frequency);
+    //writeNumberToLights(frequency / 100);
 }
 
-void writeDutyCycleToLights(float dutyCycle)
+void writeDutyCycle(float dutyCycle)
 {
-    writeNumberToLights((unsigned int)(dutyCycle * 10.0));
+    myPrintf("Duty cycle %d\r\n", (int)(dutyCycle * 100));
+    //writeNumberToLights((unsigned int)(dutyCycle * 10.0));
+}
+
+void writeMode(bool mode)
+{
+    myPrintf("Now in %s mode\r\n", mode ? "frequency" : "duty cycle");
 }
 
 void modeChangeTimeout()
 {
     changeFrequency(prevFrequency);
     changeDutyCycle(prevDutyCycle);
-    if (frequencyMode) {
-        writeFrequencyToLights(currentFrequency);
-    } else {
-        writeDutyCycleToLights(currentDutyCycle);
-    }
     frequencyMode = !frequencyMode;
-    delay(500);
-    setLEDs(LED_ON);
-    delay(500);
-    setLEDs(LED_OFF);
+    writeMode(frequencyMode);
 }
 
 void sequenceModeTimeout()
 {
     currentSequenceIndex = (currentSequenceIndex + 1) % numberOfSequences;
+    myPrintf("Playing sequence #%d\r\n", currentSequenceIndex);
     playSequence(sequences[currentSequenceIndex]);
 }
+
+const int frequencyIncrement = 10;
+const float dutyCycleIncrement = 0.10;
 
 void onDownButtonChange(const int state)
 {
@@ -185,15 +168,12 @@ void onDownButtonChange(const int state)
         modeChangeTimer.startMillis(modeChangeTimeout, 2000);
 
         if (frequencyMode) {
-            changeFrequency(currentFrequency - 100);
-            writeFrequencyToLights(currentFrequency);
+            changeFrequency(currentFrequency - frequencyIncrement);
         } else {
-            changeDutyCycle(currentDutyCycle - 0.10);
-            writeDutyCycleToLights(currentDutyCycle);
+            changeDutyCycle(currentDutyCycle - dutyCycleIncrement);
         }
     } else { // BUTTON_RELEASED
         modeChangeTimer.cancel();
-        setLEDs(LED_OFF);
     }
 }
 
@@ -204,25 +184,26 @@ void onUpButtonChange(const int state)
         prevFrequency = currentFrequency;
         sequenceModeTimer.startMillis(sequenceModeTimeout, 2000);
         if (frequencyMode) {
-            changeFrequency(currentFrequency + 100);
-            writeFrequencyToLights(currentFrequency);
+            changeFrequency(currentFrequency + frequencyIncrement);
         } else {
-            changeDutyCycle(currentDutyCycle + 0.10);
-            writeDutyCycleToLights(currentDutyCycle);
+            changeDutyCycle(currentDutyCycle + dutyCycleIncrement);
         }
     } else { // BUTTON_RELEASED
         sequenceModeTimer.cancel();
-        setLEDs(LED_OFF);
     }
 }
 
+void heartbeat()
+{
+    heartbeatOn = !heartbeatOn;
+    digitalWrite(ERROR_LED_PIN, heartbeatOn ? LED_ON : LED_OFF);
+    heartbeatTimer.startMillis(heartbeat, 1000);
+}
+
 void setup() {
+    initSerial();
     pinMode(ERROR_LED_PIN, OUTPUT);
     analogWrite(FAN_PWM_PIN, 0);
-    for (int i = 0; i < numLEDs; i += 1) {
-        pinMode(LEDpins[i], OUTPUT);
-        digitalWrite(LEDpins[i], LED_OFF);
-    }
 
     buttonUp.setCallback(onUpButtonChange);
     buttonDown.setCallback(onDownButtonChange);
@@ -233,8 +214,16 @@ void setup() {
     Timer1.start();
     #endif
 
+    myPrintf("In frequency mode, up/down buttons change the frequency.\r\n");
+    myPrintf("In duty cycle mode, up/down buttons change the duty cycle.\r\n");
+    myPrintf("Long press down button changes mode.\r\n");
+    myPrintf("Long press up button plays the next sequence.\r\n");
+    myPrintf("\r\n");
+
+    writeMode(frequencyMode);
     changeFrequency(2110);
     changeDutyCycle(0.50);
+    heartbeat();
 }
 
 void loop() {
@@ -243,4 +232,5 @@ void loop() {
     modeChangeTimer.update();
     sequenceModeTimer.update();
     sequenceTimer.update();
+    heartbeatTimer.update();
 }

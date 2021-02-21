@@ -27,7 +27,7 @@
     <ClInclude Include="..\Product\PAPRHwDefs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\Product\Timer.h">
+    <ClInclude Include="Timer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
