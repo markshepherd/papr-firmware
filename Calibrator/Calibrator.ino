@@ -71,7 +71,7 @@ void endSamplePeriod()
         } else {
             voltage = 0;
         }
-        myPrintf("Duty cycle %d, RPM min %d, avg %d, max %d, battery min %d, avg %d, max %d, voltage %d.%d, tone %s, samples %ld\r\n",
+        myPrintf("Duty cycle %d, RPM min %u, avg %u, max %u, battery min %d, avg %d, max %d, voltage %d.%d, tone %s, samples %lu\r\n",
             currentDutyCycle, lowestFanRPM, averageRPM, highestFanRPM,
             lowestBatteryLevel, averageBatteryLevel, highestBatteryLevel,
             (int)voltage, int(voltage * 10) - (int(voltage) * 10), 
