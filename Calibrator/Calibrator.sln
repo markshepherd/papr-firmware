@@ -3,15 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30717.126
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Product", "Product.vcxproj", "{C5F80730-F44F-4478-BDAE-6634EFC2CA88}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FanController-1.0.6", "Libraries\FanController\1.0.6\FanController\FanController-1.0.6.vcxitems", "{1DBE61D4-AD73-4869-82C5-1C4556750206}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Calibrator", "Calibrator.vcxproj", "{C5F80730-F44F-4478-BDAE-6634EFC2CA88}"
 EndProject
 Global
-	GlobalSection(SharedMSBuildProjectFiles) = preSolution
-		Libraries\FanController\1.0.6\FanController\FanController-1.0.6.vcxitems*{1dbe61d4-ad73-4869-82c5-1c4556750206}*SharedItemsImports = 9
-		Libraries\FanController\1.0.6\FanController\FanController-1.0.6.vcxitems*{c5f80730-f44f-4478-bdae-6634efc2ca88}*SharedItemsImports = 4
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
 		Release|x86 = Release|x86
@@ -26,6 +20,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {6C15CC42-6FB0-4E05-96C1-8F995F08F48A}
+		SolutionGuid = {8D1BA0AA-D91A-48A8-8D78-A0A68AB3BC55}
 	EndGlobalSection
 EndGlobal

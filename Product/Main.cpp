@@ -8,8 +8,14 @@
 #include "PAPRHwDefs.h"
 #include "Hardware.h"
 #include "Timer.h"
-#include <ButtonDebounce.h>
+#include "LongPressDetector.h"
 #include <FanController.h>
+
+#undef MYSERIAL
+
+#ifdef MYSERIAL
+#include "MySerial.h"
+#endif
 
 // Use these when you call delay()
 const int DELAY_100ms = 100;
@@ -19,15 +25,6 @@ const int DELAY_3sec = 3000;
 // The Hardware object gives access to all the microcontroller hardware such as pins and timers. Please always use this object,
 // and never access any hardware or Arduino APIs directly. This gives us the abiity to use a fake hardware object for unit testing.
 extern Hardware& hw = Hardware::instance();
-
-/********************************************************************
- * Button data
- ********************************************************************/
-
-// The ButtonDebounce object polls a pin, and calls a callback when the pin value changes. There is one ButtonDebounce object per button.
-ButtonDebounce buttonFanUp(FAN_UP_PIN, DELAY_100ms);
-ButtonDebounce buttonFanDown(FAN_DOWN_PIN, DELAY_100ms);
-ButtonDebounce buttonPowerOff(MONITOR_PIN, DELAY_100ms);
 
 /********************************************************************
  * Fan data
@@ -82,21 +79,27 @@ extern const int numLEDs = sizeof(LEDpins) / sizeof(byte);
  * Battery data
  ********************************************************************/
 
-// Here are the raw battery readings we expect for minimum and maximum battery voltages. These numbers were determined empirically.
-const int readingAt12Volts = 384;
-const int readingAt24Volts = 774;
-
-// Low/medium/high battery LEDs.
-const int batteryFullPercent = 90; // (22.7V) If the battery is above this value, we light the "full" LED
-const int batteryHalfPercent = 45; // (17.4V) If the battery is above this value but less than full, we light the "half" LED
-const int batteryLowPerent = 3;    // (12.3V) If the battery is above this value but less than half, we light the "low" LED
-// If the battery is below low, we raise a low battery alert
+// Battery levels of interest to the UI. These are determined empirically.
+/*
+measured:
+    25.2 volts = 819
+    21.6 volts = 703
+    cutoff 16.2 volts = 525
+    95% full = [est 20.6] volts = 670 TODO MEASURE FOR REAL
+    30 minutes left (before 16.2) = [est 17.0] volts = 552 TODO MEASURE FOR REAL
+*/
+const int batteryFullLevel = 670; // (xx.xV) If the battery is above this value, we light the green LED
+const int batteryLowLevel = 552;  // (yy.yV) If the battery is above this value but less than full, we light the yellow LED
+                                  //         If the battery is below this value, we flash the red LED and pulse the buzzer
 
 // We don't check the battery level on every loop(). Rather, we average battery levels over
 // a second or so, to smooth out the minor variations.
 unsigned long nextBatteryCheckMillis = 0;
-unsigned long batteryFullnessAccumulator = 0;
-unsigned long numBatteryFullnessSamples = 0;
+unsigned long batteryLevelAccumulator = 0;
+unsigned long numBatteryLevelSamples = 0;
+
+enum BatteryLevel { batteryLow, batteryNormal, batteryFull };
+BatteryLevel currentBatteryLevel = batteryFull;
 
 /********************************************************************
  * Alert data
@@ -106,7 +109,7 @@ unsigned long numBatteryFullnessSamples = 0;
 enum Alert { alertNone, alertBatteryLow, alertFanRPM };
 
 // Which LEDs to flash for each type of alert.
-const int batteryLowLEDs[] = { BATTERY_LED_LOW_PIN, BATTERY_LED_MED_PIN, BATTERY_LED_HIGH_PIN, ERROR_LED_PIN , -1 };
+const int batteryLowLEDs[] = { BATTERY_LED_LOW_PIN, ERROR_LED_PIN , -1 };
 const int fanRPMLEDs[] = { FAN_LOW_LED_PIN, FAN_MED_LED_PIN, FAN_HIGH_LED_PIN, ERROR_LED_PIN, -1 };
 const int* alertLEDs[] = { 0, batteryLowLEDs, fanRPMLEDs };
 
@@ -218,94 +221,88 @@ void updateFan() {
  * Battery
  ********************************************************************/
 
-// Return battery fullness as a number between 0 (empty = 12 volts) and 100 (full = 24 volts).
-unsigned int readBatteryFullness()
-{
-    uint16_t reading = hw.analogRead(BATTERY_VOLTAGE_PIN);
-
-    // Limit the value to the allowed range.
-    if (reading < readingAt12Volts) reading = readingAt12Volts;
-    if (reading > readingAt24Volts) reading = readingAt24Volts;
-
-    // Calculate how full the battery is. This will be a number between 0 and 100, inclusive.
-    const float fullness = float(reading - readingAt12Volts) / float(readingAt24Volts - readingAt12Volts);
-    return (unsigned int)(fullness * 100);
-}
-
 // Call this periodically to update the battery level LEDs, and raise an alert if the level gets too low.
 void updateBattery() {
     // Don't update the LEDs too often. This smooths out any small variations.
-    const unsigned long now = millis();
-    if (now < nextBatteryCheckMillis || numBatteryFullnessSamples == 0) {
+    const unsigned long now = hw.millis();
+    if (now < nextBatteryCheckMillis || numBatteryLevelSamples == 0) {
         // we have not reached the end of the averaging period. Gather a measurement.
-        batteryFullnessAccumulator += readBatteryFullness();
-        numBatteryFullnessSamples += 1;
+        batteryLevelAccumulator += hw.analogRead(BATTERY_VOLTAGE_PIN);
+        numBatteryLevelSamples += 1;
         return;
     }
 
     // The averaging period has ended...
 
-    // ...Calculate the battery fullness (0-100%) by taking the average of all the readings we made during the period.
-    const unsigned int fullness = batteryFullnessAccumulator / numBatteryFullnessSamples;
+    // ...Calculate the battery level by taking the average of all the readings we made during the period.
+    const unsigned int batteryLevel = batteryLevelAccumulator / numBatteryLevelSamples;
 
     // ...Start a new averaging period
     nextBatteryCheckMillis = now + DELAY_500ms;
-    batteryFullnessAccumulator = 0;
-    numBatteryFullnessSamples = 0;
+    batteryLevelAccumulator = 0;
+    numBatteryLevelSamples = 0;
 
     // Turn off all the battery LEDs
     hw.digitalWrite(BATTERY_LED_LOW_PIN, LED_OFF);
     hw.digitalWrite(BATTERY_LED_MED_PIN, LED_OFF);
     hw.digitalWrite(BATTERY_LED_HIGH_PIN, LED_OFF);
 
-    // Turn on the LED corresponding to the current fullness
-    if (fullness >= batteryFullPercent) {
+    // Turn on the LED corresponding to the current level. To keep the UI from jittering, don't allow the level
+    // to go up, only down. 
+    if (batteryLevel >= batteryFullLevel && currentBatteryLevel >= batteryFull) {
+        currentBatteryLevel = batteryFull;
         hw.digitalWrite(BATTERY_LED_HIGH_PIN, LED_ON);
-    } else if (fullness >= batteryHalfPercent) {
+    } else if (batteryLevel >= batteryLowLevel && currentBatteryLevel >= batteryNormal) {
+        currentBatteryLevel = batteryNormal;
         hw.digitalWrite(BATTERY_LED_MED_PIN, LED_ON);
-    } else if (fullness >= batteryLowPerent) {
-        hw.digitalWrite(BATTERY_LED_LOW_PIN, LED_ON);
     } else {
+        currentBatteryLevel = batteryLow;
         enterAlertState(alertBatteryLow);
     }
 }
 
+/********************************************************************
+ * Button handlers
+ ********************************************************************/
+
 // Handler for Fan Down button
-void onFanDownButtonChange(const int state)
+void onFanDownLongPress(const int)
 {
-    if (state == BUTTON_RELEASED) {
-        setFanSpeed((currentFanSpeed == fanHigh) ? fanMedium : fanLow);
-    }
+    setFanSpeed((currentFanSpeed == fanHigh) ? fanMedium : fanLow);
 }
 
 // Handler for Fan Up button
-void onFanUpButtonChange(const int state)
+void onFanUpLongPress(const int)
 {
-    if (state == BUTTON_RELEASED) {
-        setFanSpeed((currentFanSpeed == fanLow) ? fanMedium : fanHigh);
-    }
+    setFanSpeed((currentFanSpeed == fanLow) ? fanMedium : fanHigh);
 }
 
 // Handler for the Power Off button
-void onMonitorChange(const int state)
+void onMonitorPress(const int state)
 {
-    if (state == BUTTON_PUSHED) {
-        // Set the UI to "going away soon"
+    // Turn on all LEDs, and the buzzer
+    allLEDsOn();
+    hw.analogWrite(BUZZER_PIN, BUZZER_ON);
 
-        // Turn on all LEDs, and the buzzer
-        allLEDsOn();
-        hw.analogWrite(BUZZER_PIN, BUZZER_ON);
+    // Wait until the power goes off, or the user releases the button.
+    while (hw.digitalRead(MONITOR_PIN) == BUTTON_PUSHED) {}
 
-        // Leave the lights and buzzer on. We expect to lose power in just a moment.
-    } else {
-        // The user must have pushed and released the button very quickly, not long enough
-        // to actually shut off the power. Go back to normal.
-        allLEDsOff();
-        hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
-        setFanSpeed(currentFanSpeed); // to update the fan speed LEDs
-        // The battery level indicator will be updated by updateBattery() on the next call to loop().
-    }
+    // The user must have pushed and released the button very quickly, not long enough
+    // for the machine to shut itself off. Go back to normal.
+    allLEDsOff();
+    hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
+    setFanSpeed(currentFanSpeed); // to update the fan speed LEDs
+    // The battery level indicator will be updated by updateBattery() on the next call to loop().
 }
+
+// The LongPressDetector object polls a button input pin, and calls a callback when a long press is detected. We use one LongPressDetector object per button.
+LongPressDetector buttonFanUp(FAN_UP_PIN, DELAY_500ms, onFanUpLongPress);
+LongPressDetector buttonFanDown(FAN_DOWN_PIN, DELAY_500ms, onFanDownLongPress);
+LongPressDetector buttonPowerOff(MONITOR_PIN, 50, onMonitorPress);
+
+/********************************************************************
+ * Main
+ ********************************************************************/
 
 void Main::setup()
 {
@@ -313,19 +310,20 @@ void Main::setup()
     hw.configurePins();
     hw.initializeDevices();
 
-    // Initialize the buttons
-    buttonFanUp.setCallback(onFanUpButtonChange);
-    buttonFanDown.setCallback(onFanDownButtonChange);
-    buttonPowerOff.setCallback(onMonitorChange);
+    #ifdef MYSERIAL
+    initSerial();
+    myPrintf("PAPR startup\r\n");
+    #endif
 
     // Initialize the fan
     fanController.begin();
     setFanSpeed(defaultFanSpeed);
+
+    nextBatteryCheckMillis = hw.millis() + DELAY_500ms;
 }
 
 void Main::loop()
 {
-    // Run various polling functions
     buttonFanUp.update();
     buttonFanDown.update();
     buttonPowerOff.update();

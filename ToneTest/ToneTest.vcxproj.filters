@@ -15,45 +15,24 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Product.ino" />
+    <None Include="ToneTest.ino" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="__vm\.Product.vsarduino.h">
+    <ClInclude Include="__vm\.ToneTest.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Debugging.h">
+    <ClInclude Include="..\Product\MySerial.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Hardware.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Main.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PAPRHwDefs.h">
+    <ClInclude Include="..\Product\PAPRHwDefs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Timer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MySerial.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="LongPressDetector.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Debugging.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Hardware.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="MySerial.cpp">
+    <ClCompile Include="..\Product\MySerial.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
