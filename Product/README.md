@@ -1,4 +1,4 @@
-This project is the firmware that runs the Air-To-All PAPR version 1.
+This project is the firmware that runs the Air-To-All PAPR version 2 PCB.
 
 This is an Arduino-compatible app, that mostly uses Arduino APIs to access the hardware.
 
