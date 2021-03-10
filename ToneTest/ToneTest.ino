@@ -1,5 +1,6 @@
 #undef USE_TIMER1
 // speaker is slightly louder with USE_TIMER1, 94dB vs 92dB at ~0.5cm
+#undef USE_ANALOG_WRITE
 
 #ifdef USE_TIMER1
 #include <TimerOne.h>
@@ -94,7 +95,9 @@ void changeFrequency(unsigned long frequency)
     currentFrequency = frequency;
     #ifdef USE_TIMER1
         Timer1.setPeriod(1000000.0 / frequency);
-    #else
+    #elif defined USE_ANALOG_WRITE
+        // do nothing
+    #else 
         tone(BUZZER_PIN, frequency);
     #endif
     writeFrequency(currentFrequency);
@@ -105,6 +108,8 @@ void changeDutyCycle(float dutyCycle)
     currentDutyCycle = dutyCycle;
     #ifdef USE_TIMER1
         Timer1.setPwmDuty(BUZZER_PIN, dutyCycle * 1023);
+    #elif defined USE_ANALOG_WRITE
+        analogWrite(BUZZER_PIN, dutyCycle * 2.55);
     #endif
     writeDutyCycle(currentDutyCycle);
 }
