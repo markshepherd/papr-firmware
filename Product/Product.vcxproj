@@ -89,7 +89,7 @@
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(ProjectDir)..\Product;$(ProjectDir)Libraries\FanController\1.0.6\FanController;ARDUINO_IDE\hardware\arduino\avr\cores\arduino;ARDUINO_IDE\hardware\arduino\avr\variants\eightanaloginputs;ARDUINO_IDE\hardware\tools\avr\\lib\gcc\avr\7.3.0\include;ARDUINO_IDE\hardware\tools\avr\avr\include;ARDUINO_IDE\hardware\tools\avr\\lib\gcc\avr\7.3.0\include;ARDUINO_IDE\hardware\tools\avr\avr\include-fixed;ARDUINO_IDE\hardware\tools\avr\avr\include\avr;ARDUINO_IDE\hardware\tools\avr\lib\gcc\avr\4.9.2\include;ARDUINO_IDE\hardware\tools\avr\lib\gcc\avr\4.9.2\include;ARDUINO_IDE\hardware\tools\avr\lib\gcc\avr\4.9.3\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>$(ProjectDir)__vm\.Product.vsarduino.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
-      <PreprocessorDefinitions>__AVR_atmega328p__;__AVR_ATmega328P__;__AVR_ATmega328p__;F_CPU=16000000L;ARDUINO=108013;ARDUINO_AVR_NANO;ARDUINO_ARCH_AVR;__cplusplus=201103L;_VMICRO_INTELLISENSE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__AVR_atmega328p__;__AVR_ATmega328P__;__AVR_ATmega328p__;F_CPU=8000000L;ARDUINO=108013;ARDUINO_AVR_NANO;ARDUINO_ARCH_AVR;__cplusplus=201103L;_VMICRO_INTELLISENSE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -123,6 +123,9 @@
     <ClCompile Include="Hardware.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MySerial.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="board.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
