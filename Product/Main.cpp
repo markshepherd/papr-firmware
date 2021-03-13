@@ -304,8 +304,19 @@ LongPressDetector buttonPowerOff(MONITOR_PIN, 50, onMonitorPress);
  * Main
  ********************************************************************/
 
+ // prescalerSelect is 0..8, giving division factor of 1..256
+void setClockPrescaler(int prescalerSelect)
+{
+    noInterrupts();
+    CLKPR = (1 << CLKPCE);
+    CLKPR = prescalerSelect;
+    interrupts();
+}
+
 void Main::setup()
 {
+    setClockPrescaler(0);
+
     // Initialize the hardware
     hw.configurePins();
     hw.initializeDevices();
