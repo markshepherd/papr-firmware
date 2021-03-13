@@ -2,51 +2,7 @@
  * Hardware.cpp
  */
 #include "Hardware.h"
-#include "Arduino.h"
 #include "PAPRHwDefs.h"
-
-/********************************************************************
- * Arduino cover functions
- ********************************************************************/
-
-void Hardware::pinMode(uint8_t pin, uint8_t mode) {
-    ::pinMode(pin, mode);
-}
-
-void Hardware::digitalWrite(uint8_t pin, uint8_t val)
-{
-    ::digitalWrite(pin, val);
-}
-
-int Hardware::digitalRead(uint8_t pin)
-{
-    return ::digitalRead(pin);
-}
-
-int Hardware::analogRead(uint8_t pin)
-{
-    return ::analogRead(pin);
-}
-
-void Hardware::analogWrite(uint8_t pin, int val)
-{
-    ::analogWrite(pin, val);
-}
-
-unsigned long Hardware::millis(void)
-{
-    return ::millis();
-}
-
-void Hardware::delay(unsigned long ms)
-{
-    ::delay(ms);
-}
-
-void Hardware::delayMicroseconds(unsigned int us)
-{
-    ::delayMicroseconds(us);
-}
 
 /********************************************************************
  * PAPR-specific functions
@@ -88,12 +44,4 @@ void Hardware::initializeDevices()
 
     // Buzzer off
     analogWrite(BUZZER_PIN, BUZZER_OFF);
-}
-
-
-Hardware Hardware::hardwareInstance;
-
-Hardware& Hardware::instance()
-{
-    return hardwareInstance;
 }

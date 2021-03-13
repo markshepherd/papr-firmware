@@ -4,7 +4,20 @@
 * This header file defines all the input/output pins on the v2 PAPR board.
 */
 #pragma once
+#ifdef UNITTEST
+const int A0 = 20;
+const int A1 = 21;
+const int A2 = 22;
+const int A3 = 23;
+const int A4 = 24;
+const int A5 = 25;
+const int A6 = 26;
+const int A7 = 27;
+const int LOW = 0;
+const int HIGH = 1;
+#else
 #include "Arduino.h"
+#endif
 
 //================================================================
 // OUTPUT PINS
