@@ -7,12 +7,11 @@ extern unsigned long getMillis();
 
 class Timer {
 public:
-    Timer() : _when(0), _callback(0) {}
+    Timer(void (*callback)()) : _when(0), _callback(callback) {}
 
     // schedules a callback to occur at the specified time interval from now
-    void start(void (*callback)(), unsigned int intervalMillis) {
+    void start(unsigned int intervalMillis) {
         _when = getMillis() + intervalMillis;
-        _callback = callback;
     }
 
     // call this from loop()

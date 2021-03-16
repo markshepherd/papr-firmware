@@ -3,6 +3,8 @@
  */
 #include "Hardware.h"
 #include "PAPRHwDefs.h"
+#include "MySerial.h"
+#include <avr/interrupt.h>
 
 /********************************************************************
  * PAPR-specific functions
@@ -44,4 +46,46 @@ void Hardware::initializeDevices()
 
     // Buzzer off
     analogWrite(BUZZER_PIN, BUZZER_OFF);
+}
+
+int Hardware::watchdogStartup(void)
+{
+    int result = MCUSR;
+    MCUSR = 0;
+    wdt_disable();
+    return result;
+}
+
+// prescalerSelect is 0..8, giving division factor of 1..256
+void Hardware::setClockPrescaler(int prescalerSelect)
+{
+    noInterrupts();
+    CLKPR = (1 << CLKPCE);
+    CLKPR = prescalerSelect;
+    interrupts();
+}
+
+void Hardware::reset()
+{
+    // "onReset" points to the RESET interrupt handler at address 0.
+    void(*onReset) (void) = 0;
+    onReset();
+}
+
+void (*powerButtonInterruptCallback) ();
+
+#ifndef SERIAL_ENABLED
+ISR(PCINT2_vect)
+{
+    powerButtonInterruptCallback();
+}
+#endif
+
+void Hardware::setPowerButtonInterruptCallback(void (*callback) ())
+{
+    powerButtonInterruptCallback = callback;
+ 
+    // Enable Pin Change Interrupt for the Power On button.
+    PCMSK2 |= 0x80; // set PCINT23 = 1 to enable PCINT on pin PD7
+    PCICR |= 0x04; // set PCIE2 = 1 to enable PC interrupts
 }

@@ -1,21 +1,21 @@
 #pragma once
 
 /********************************************************************
- * Long Press detector for buttons
+ * Press detector for buttons
  ********************************************************************/
 
-class LongPressDetector {
+class PressDetector {
 private:
     unsigned int _pin;
-    unsigned long _longPressMillis;
+    unsigned long _requiredMillis;
     void (*_callback)(const int);
     int _currentState;
     unsigned long _pressMillis;
     bool _callbackCalled;
 
 public:
-    LongPressDetector(int pin, unsigned long longPressMillis, void(*callback)(const int))
-        : _pin(pin), _longPressMillis(longPressMillis), _callback(callback),
+    PressDetector(int pin, unsigned long requiredMillis, void(*callback)(const int))
+        : _pin(pin), _requiredMillis(requiredMillis), _callback(callback),
         _currentState(BUTTON_RELEASED), _pressMillis(0), _callbackCalled(true) {}
 
     void update()
@@ -24,8 +24,8 @@ public:
 
         if (state == BUTTON_PUSHED) {
             if (_currentState == BUTTON_PUSHED) {
-                // The button is already pressed. See if the button has been pressed long enough to be a long press.
-                if (!_callbackCalled && (millis() - _pressMillis > _longPressMillis)) {
+                // The button is already pressed. See if the button has been pressed long enough.
+                if (!_callbackCalled && (millis() - _pressMillis > _requiredMillis)) {
                     _callback(state);
                     _callbackCalled = true;
                 }

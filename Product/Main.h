@@ -12,7 +12,7 @@
 #include "UnitTest/MyFanController.h"
 #include "UnitTest/MyHardware.h"
 #else
-#include "LongPressDetector.h"
+#include "PressDetector.h"
 #include <FanController.h>
 #include "Hardware.h"
 #endif
@@ -24,6 +24,12 @@ enum Alert { alertNone, alertBatteryLow, alertFanRPM };
 
 // The user can choose any of these speeds
 enum FanSpeed { fanLow, fanMedium, fanHigh };
+
+// We can be either on or off, and either charging or not charging.
+enum PowerState { powerOff, powerOn, powerOffCharging, powerOnCharging };
+
+// Battery can be either low, normal, or full.
+enum BatteryLevel { batteryLow, batteryNormal, batteryFull };
 
 class Main {
 public:
@@ -37,10 +43,10 @@ public:
     // and never access any hardware or Arduino APIs directly. This gives us the abiity to use a fake hardware object for unit testing.
     Hardware hw;
 
-    // The LongPressDetector object polls a pin, and calls a callback when the pin value changes. There is one LongPressDetector object per button.
-    LongPressDetector buttonFanUp;
-    LongPressDetector buttonFanDown;
-    LongPressDetector buttonPowerOff;
+    // The PressDetector object polls a pin, and calls a callback when the pin value changes. There is one PressDetector object per button.
+    PressDetector buttonFanUp;
+    PressDetector buttonFanDown;
+    PressDetector buttonPower;
 
     // The object that controls and monitors the fan.
     FanController fanController;
@@ -50,19 +56,27 @@ private:
     void allLEDsOff();
     void allLEDsOn();
     void setLEDs(const int* pinList, int state);
+    void flashAllLEDs(int millis, int count);
     void realOnToggleAlert();
     void enterAlertState(Alert alert);
     void setFanSpeed(FanSpeed speed);
     void updateFan();
-    unsigned int readBatteryFullness();
     void updateBattery();
-    void realOnMonitorLongPress(const int state);
+    void realOnPowerPress(const int state);
+    void setPowerMode(int mode);
+    void enterState(PowerState newState);
+    void realPowerButtonInterruptCallback();
+    void nap();
+    void doUpdates();
+    bool stateOfChargeUpdate();
+    void updateFanLEDs();
 
     // Event handlers
     static void onToggleAlert();
-    static void onFanDownLongPress(const int state);
-    static void onFanUpLongPress(const int state);
-    static void onMonitorLongPress(const int state);
+    static void onFanDownPress(const int state);
+    static void onFanUpPress(const int state);
+    static void onPowerPress(const int state);
+    static void powerButtonInterruptCallback();
 
     /********************************************************************
      * Fan data
@@ -75,7 +89,7 @@ private:
     unsigned long dontCheckFanSpeedUntil = 0;
 
     /********************************************************************
-     * Battery data
+     * Battery and power data
      ********************************************************************/
 
      // We don't check the battery level on every loop(). Rather, we average battery levels over
@@ -84,8 +98,9 @@ private:
     unsigned long batteryLevelAccumulator = 0;
     unsigned long numBatteryLevelSamples = 0;
 
-    enum BatteryLevel { batteryLow, batteryNormal, batteryFull };
     BatteryLevel currentBatteryLevel = batteryFull;
+
+    PowerState powerState;
 
     /********************************************************************
      * Alert data

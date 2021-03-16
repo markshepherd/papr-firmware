@@ -39,7 +39,7 @@
     <ClInclude Include="MySerial.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="LongPressDetector.h">
+    <ClInclude Include="PressDetector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

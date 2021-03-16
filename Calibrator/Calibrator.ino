@@ -135,8 +135,17 @@ void onDownButton(int state)
     }
 }
 
+void setClockPrescaler(int prescalerSelect)
+{
+    noInterrupts();
+    CLKPR = (1 << CLKPCE);
+    CLKPR = prescalerSelect;
+    interrupts();
+}
+
 void setup()
 {
+    setClockPrescaler(0);
     initSerial();
     upButton.setCallback(onUpButton);
     downButton.setCallback(onDownButton);
