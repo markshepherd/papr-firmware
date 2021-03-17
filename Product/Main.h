@@ -26,7 +26,15 @@ enum Alert { alertNone, alertBatteryLow, alertFanRPM };
 enum FanSpeed { fanLow, fanMedium, fanHigh };
 
 // We can be either on or off, and either charging or not charging.
-enum PowerState { powerOff, powerOn, powerOffCharging, powerOnCharging };
+enum PAPRState { stateOff, stateOn, stateOffCharging, stateOnCharging };
+
+// - High Power Mode means that all parts of the PCB are fully powered 
+// - Low Power Mode means that the MCU receives reduced voltage (approx 2.5 instead of 5)
+//   and the rest of the PCB receives no power. In this mode, the MCU runs at a
+//   reduced clock speed (1 MHz instead of 8 MHz).
+//
+// We use low power mode when we're in the Power Off state, in order to conserve power
+enum PowerMode { lowPowerMode, fullPowerMode };
 
 class Main {
 public:
@@ -52,30 +60,31 @@ private:
     // Internal functions
     void allLEDsOff();
     void allLEDsOn();
-    void setLEDs(const int* pinList, int state);
+    void setLEDs(const int* pinList, int onOff);
     void flashAllLEDs(int millis, int count);
-    void realOnToggleAlert();
+    void onToggleAlert();
     void enterAlertState(Alert alert);
     void setFanSpeed(FanSpeed speed);
-    void updateFan();
-    void updateBattery();
-    void realOnPowerPress(const int state);
-    void setPowerMode(int mode);
-    void enterPowerState(PowerState newState);
-    void realPowerButtonInterruptCallback();
+    void checkForFanAlert();
+    void checkForBatteryAlert();
+    void onPowerPress();
+    void setPowerMode(PowerMode mode);
+    void enterState(PAPRState newState);
+    void powerButtonInterruptCallback();
     void nap();
-    void doUpdates();
-    void stateOfChargeUpdate();
+    void doAllUpdates();
+    void updateBatteryCoulombs();
     void updateFanLEDs();
     void updateBatteryLEDs();
     bool isCharging();
+    void cancelAlert();
 
-    // Event handlers
-    static void onToggleAlert();
-    static void onFanDownPress(const int state);
-    static void onFanUpPress(const int state);
-    static void onPowerPress(const int state);
-    static void powerButtonInterruptCallback();
+    // Event handler glue code
+    static void staticToggleAlert();
+    static void staticFanDownPress(const int);
+    static void staticFanUpPress(const int);
+    static void staticPowerPress(const int);
+    static void staticPowerButtonInterruptCallback();
 
     /********************************************************************
      * Fan data
@@ -92,8 +101,8 @@ private:
      ********************************************************************/
 
     unsigned long lastBatteryUpdateMicros = 0;
-    double batteryCoulombs; // how much charge is currently in the battery
-    PowerState powerState;
+    double batteryCoulombs; // Our coulomb counter. It tells how much charge is in the battery right now.
+    PAPRState paprState;
 
     /********************************************************************
      * Alert data

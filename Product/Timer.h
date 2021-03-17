@@ -12,6 +12,7 @@ public:
     // schedules a callback to occur at the specified time interval from now
     void start(unsigned int intervalMillis) {
         _when = getMillis() + intervalMillis;
+        if (_when == 0) _when = 1;
     }
 
     // call this from loop()
@@ -20,6 +21,10 @@ public:
             _when = 0;
             (*_callback)();
         }
+    }
+
+    void cancel() {
+        _when = 0;
     }
 
 private:
