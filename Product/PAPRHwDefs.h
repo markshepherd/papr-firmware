@@ -25,7 +25,7 @@ const int FAN_PWM_PIN            =  5;  /* PD5 Analog:  0-255 duty cycle     */
 const int BATTERY_LED_LOW_PIN    = A0;  /* PC0 Digital: LOW = on, HIGH = off */
 const int BATTERY_LED_MED_PIN    = A1;  /* PC1 Digital: LOW = on, HIGH = off */
 const int BATTERY_LED_HIGH_PIN   = A2;  /* PC2 Digital: LOW = on, HIGH = off */
-const int ERROR_LED_PIN          = A3;  /* PC3 Digital: LOW = on, HIGH = off */
+const int CHARGING_LED_PIN       = A3;  /* PC3 Digital: LOW = on, HIGH = off */
 const int FAN_LOW_LED_PIN        = A4;  /* PC4 Digital: LOW = on, HIGH = off */
 const int FAN_MED_LED_PIN        = A5;  /* PC5 Digital: LOW = on, HIGH = off */
 const int FAN_HIGH_LED_PIN       =  0;  /* PD0 Digital: LOW = on, HIGH = off */
@@ -46,9 +46,10 @@ const int MONITOR_PIN            =  7;  /* PD7 Digital: LOW = power down button 
 const int FAN_RPM_PIN            =  3;  /* PD3 Digital: square wave, frequency proportional to RPM */
 const int FAN_UP_PIN             =  1;  /* PD1 Digital: LOW = pushed, HIGH = released */
 const int FAN_DOWN_PIN           =  9;  /* PB1 Digital: LOW = pushed, HIGH = released */
-const int POWER_PIN              = MONITOR_PIN;
-const int POWER_ON_PIN           = MONITOR_PIN;
-const int POWER_OFF_PIN          = MONITOR_PIN;
+const int POWER_PIN              = MONITOR_PIN; // TEMP
+const int POWER_ON_PIN           = MONITOR_PIN; // TEMP
+const int POWER_OFF_PIN          = MONITOR_PIN; // TEMP
+const int CHARGE_FLOW_PIN        = BATTERY_VOLTAGE_PIN; // TEMP
 
 const int BUTTON_PUSHED = LOW;
 const int BUTTON_RELEASED = HIGH;

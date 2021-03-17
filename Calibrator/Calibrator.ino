@@ -71,7 +71,7 @@ void endSamplePeriod()
         } else {
             voltage = 0;
         }
-        myPrintf("Duty cycle %d, RPM min %u, avg %u, max %u, battery min %d, avg %d, max %d, voltage %d.%d, tone %s, samples %lu\r\n",
+        MySerial::printf("Duty cycle %d, RPM min %u, avg %u, max %u, battery min %d, avg %d, max %d, voltage %d.%d, tone %s, samples %lu\r\n",
             currentDutyCycle, lowestFanRPM, averageRPM, highestFanRPM,
             lowestBatteryLevel, averageBatteryLevel, highestBatteryLevel,
             (int)voltage, int(voltage * 10) - (int(voltage) * 10), 
@@ -87,7 +87,7 @@ void setFanDutyCycle(int dutyCycle)
     fanController.setDutyCycle(dutyCycle);
     beginSamplePeriod();
     skipReport = true;
-    myPrintf("Duty cycle %d\r\n\r\n", dutyCycle);
+    MySerial::printf("Duty cycle %d\r\n\r\n", dutyCycle);
 }
 
 int increment = 10;
@@ -146,7 +146,7 @@ void setClockPrescaler(int prescalerSelect)
 void setup()
 {
     setClockPrescaler(0);
-    initSerial();
+    MySerial::init();
     upButton.setCallback(onUpButton);
     downButton.setCallback(onDownButton);
     fanController.begin();

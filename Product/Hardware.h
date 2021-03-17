@@ -22,6 +22,7 @@ public:
     inline int analogRead(uint8_t pin) { return ::analogRead(pin); }
     inline void analogWrite(uint8_t pin, int val) { ::analogWrite(pin, val); }
     inline unsigned long millis(void) { return ::millis(); }
+    inline unsigned long micros(void) { return ::micros(); }
     inline void delay(unsigned long ms) { ::delay(ms); }
     inline void delayMicroseconds(unsigned int us) { ::delayMicroseconds(us); }
     inline void wdt_enable(const uint8_t value) { ::wdt_enable(value); }

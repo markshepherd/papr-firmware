@@ -1,6 +1,6 @@
 #pragma once
 
-#undef SERIAL_ENABLED
+#define SERIAL_ENABLED
 
 class MySerial {
 public:

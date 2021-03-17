@@ -28,9 +28,6 @@ enum FanSpeed { fanLow, fanMedium, fanHigh };
 // We can be either on or off, and either charging or not charging.
 enum PowerState { powerOff, powerOn, powerOffCharging, powerOnCharging };
 
-// Battery can be either low, normal, or full.
-enum BatteryLevel { batteryLow, batteryNormal, batteryFull };
-
 class Main {
 public:
     Main();
@@ -64,12 +61,14 @@ private:
     void updateBattery();
     void realOnPowerPress(const int state);
     void setPowerMode(int mode);
-    void enterState(PowerState newState);
+    void enterPowerState(PowerState newState);
     void realPowerButtonInterruptCallback();
     void nap();
     void doUpdates();
-    bool stateOfChargeUpdate();
+    void stateOfChargeUpdate();
     void updateFanLEDs();
+    void updateBatteryLEDs();
+    bool isCharging();
 
     // Event handlers
     static void onToggleAlert();
@@ -92,14 +91,8 @@ private:
      * Battery and power data
      ********************************************************************/
 
-     // We don't check the battery level on every loop(). Rather, we average battery levels over
-     // a second or so, to smooth out the minor variations.
-    unsigned long nextBatteryCheckMillis = 0;
-    unsigned long batteryLevelAccumulator = 0;
-    unsigned long numBatteryLevelSamples = 0;
-
-    BatteryLevel currentBatteryLevel = batteryFull;
-
+    unsigned long lastBatteryUpdateMicros = 0;
+    double batteryCoulombs; // how much charge is currently in the battery
     PowerState powerState;
 
     /********************************************************************
@@ -107,7 +100,7 @@ private:
      ********************************************************************/
 
      // Data used when we are in the alert state.
-    Alert currentAlert = alertNone;
+    Alert currentAlert;
     const int* currentAlertLEDs = nullptr;
     const int* currentAlertMillis = nullptr;
     bool alertToggle;
