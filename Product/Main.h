@@ -74,6 +74,7 @@ private:
     void nap();
     void doAllUpdates();
     void updateBatteryCoulombs();
+    void updateBatteryVoltage();
     void updateFanLEDs();
     void updateBatteryLEDs();
     bool isCharging();
@@ -100,8 +101,12 @@ private:
      * Battery and power data
      ********************************************************************/
 
-    unsigned long lastBatteryUpdateMicros = 0;
-    double batteryCoulombs; // Our coulomb counter. It tells how much charge is in the battery right now.
+    unsigned long lastBatteryCoulombsUpdateMicros;
+    double batteryCoulombs; // How much charge is in the battery right now.
+    unsigned long lastBatteryVoltsUpdateMillis;
+    unsigned long batteryVoltageAccumulator;
+    unsigned long numBatteryVoltageSamples;
+    float batteryVolts; // The battery voltage right now.
     PAPRState paprState;
 
     /********************************************************************
