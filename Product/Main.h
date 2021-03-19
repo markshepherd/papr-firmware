@@ -79,6 +79,7 @@ private:
     void updateBatteryLEDs();
     bool isCharging();
     void cancelAlert();
+    bool doPowerOffWarning();
 
     // Event handler glue code
     static void staticToggleAlert();

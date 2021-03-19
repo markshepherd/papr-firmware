@@ -39,6 +39,13 @@ const int FAN_STABILIZE_MILLIS = 3000;
 // The user must push a button for at least this many milliseconds.
 const int BUTTON_DEBOUNCE_MILLIS = 750;
 
+// The power off button needs a very short debounce interval,
+// so it can do a little song and dance before taking effect.
+const int POWER_OFF_BUTTON_DEBOUNCE_MILLIS = 50;
+
+// The power off button only takes effect if the user holds it pressed for at least this long.
+const int POWER_OFF_BUTTON_HOLD_MILLIS = 1000;
+
 /********************************************************************
  * LED constants
  ********************************************************************/
@@ -345,8 +352,10 @@ void Main::enterState(PAPRState newState)
         case stateOn:
         case stateOnCharging:
             setFanSpeed(currentFanSpeed);
-            if (currentAlert == alertNone) {
+            if (currentAlert != alertFanRPM) {
                 updateFanLEDs();
+            }
+            if (currentAlert != alertBatteryLow) {
                 updateBatteryLEDs();
             }
             break;
@@ -378,14 +387,14 @@ void Main::nap()
         hw.digitalWrite(FAN_HIGH_LED_PIN, LED_OFF);
 
         // Read the charging indicator...
-        // 1. Temporarily set the PCB to Full Power mode.
+        // ... temporarily set the PCB to full power mode.
         hw.digitalWrite(BOARD_POWER_PIN, HIGH);
-        // 2. wait for 6 milliseconds to allow the board to reach full power
+        // ... wait for 6 milliseconds to allow the board to reach full power
         unsigned long startMicros = hw.micros();
         while (hw.micros() - startMicros < (6000 / 8)) {} // divide by 8 because we are currently running at 1/8 normal speed.
-        // 3. read the charging current
+        // ... read the charging sensor
         bool charging = isCharging();
-        // 4. go back to low power
+        // ... set the PCB back to low power
         hw.digitalWrite(BOARD_POWER_PIN, LOW);
 
         if (charging) {
@@ -413,19 +422,52 @@ void Main::nap()
  * UI event handlers
  ********************************************************************/
 
+bool Main::doPowerOffWarning()
+{
+    // Turn on all LEDs, and the buzzer
+    allLEDsOn();
+    hw.analogWrite(BUZZER_PIN, BUZZER_ON);
+
+    // If the user holds the button for long enough.
+    unsigned long startMillis = hw.millis();
+    while (hw.digitalRead(POWER_PIN) == BUTTON_PUSHED) {
+        if (hw.millis() - startMillis > POWER_OFF_BUTTON_HOLD_MILLIS) {
+            allLEDsOff();
+            while (hw.digitalRead(POWER_PIN) == BUTTON_PUSHED) {}
+            return true;
+        }
+    }
+
+    // The user did not hold the button long enough. Restore the UI.
+    allLEDsOff();
+    hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
+    if (currentAlert != alertFanRPM) {
+        updateFanLEDs();
+    }
+    if (currentAlert != alertBatteryLow) {
+        updateBatteryLEDs();
+    }
+    return false;
+}
+
 void Main::onPowerPress()
 {
     switch (paprState) {
         case stateOn:
-            enterState(stateOff);
+            if (doPowerOffWarning()) {
+                enterState(stateOff);
+            }
             break;
 
         case stateOff:
+            // I don't think we can ever get here.
             enterState(stateOn);
             break;
 
         case stateOnCharging:
-            enterState(stateOffCharging);
+            if (doPowerOffWarning()) {
+                enterState(stateOffCharging);
+            }
             break;
 
         case stateOffCharging:
@@ -501,7 +543,7 @@ void Main::staticPowerButtonInterruptCallback()
 Main::Main() :
     buttonFanUp(FAN_UP_PIN, BUTTON_DEBOUNCE_MILLIS, staticFanUpPress),
     buttonFanDown(FAN_DOWN_PIN, BUTTON_DEBOUNCE_MILLIS, staticFanDownPress),
-    buttonPower(POWER_PIN, BUTTON_DEBOUNCE_MILLIS, staticPowerPress),
+    buttonPower(POWER_PIN, POWER_OFF_BUTTON_DEBOUNCE_MILLIS, staticPowerPress),
     alertTimer(staticToggleAlert),
     fanController(FAN_RPM_PIN, FAN_SPEED_READING_INTERVAL, FAN_PWM_PIN),
     currentFanSpeed(fanLow),
@@ -591,6 +633,10 @@ void Main::doAllUpdates()
 // TEMP
 //unsigned long lastBatteryPrintMillis = 0;
 
+// TEMP
+unsigned long loopCount = 0;
+unsigned long lastLoopCountReportMillis = 0;
+
 void Main::loop()
 {
     // TEMP
@@ -600,6 +646,13 @@ void Main::loop()
     //    MySerial::printf("batteryCoulombs %ld = %d percent", (long)batteryCoulombs, percentFull);
     //    lastBatteryPrintMillis = now;
     //}
+
+    // TEMP
+    if (hw.millis() - lastLoopCountReportMillis > 10000) {
+        MySerial::printf("%ld loops in %ld millis", loopCount, hw.millis() - lastLoopCountReportMillis);
+        lastLoopCountReportMillis = hw.millis();
+        loopCount = 0;
+    }
 
     hw.wdt_reset_();
 
