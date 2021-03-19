@@ -24,4 +24,21 @@ void serialPrintf(const char* __fmt, ...) {
 void serialInit() {
 	mySerial.begin(57600);
 }
+
+char* renderDouble(double number, char* pBuffer)
+{
+	if (!pBuffer) {
+		const int size = 50;
+		static char buffer[size];
+		pBuffer = buffer;
+	}
+	bool negative;
+	if (negative = number < 0) number = -number;
+	long integerPart = (long)number;
+	double fraction = number - (double)integerPart;
+	char buff[10];
+	sprintf(buff, "%d", (int)(fraction * 1000.0) + 1000);
+	sprintf(pBuffer, "yyyy%s %ld.%s", (negative ? "-" : ""), integerPart, &buff[1]);
+	return pBuffer;
+}
 #endif

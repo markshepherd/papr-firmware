@@ -22,6 +22,9 @@ unsigned long batteryLevelAccumulator;
 
 bool toneOn = false;
 
+float filteredBatteryLevel = 0.0;
+const float lowPassFilterN = 500.0;
+
 void beginSamplePeriod()
 {
     samplePeriodEndMillis = millis() + 5000;
@@ -56,6 +59,12 @@ void takeSample()
     if (batteryLevel > highestBatteryLevel) {
         highestBatteryLevel = batteryLevel;
     }
+
+    // Do a low pass filter on the battery level.
+    // I have found that the filtered battery level varies +/- 2 ADC units, which is much better
+    // than the +/- 50 units we get with the unfiltered battery level. However, the 1-second average method gives
+    // +/- 0.5, which is even better.
+    filteredBatteryLevel = ((filteredBatteryLevel * lowPassFilterN) + (float)batteryLevel) / (lowPassFilterN + 1.0);
 }
 
 void endSamplePeriod()
@@ -71,9 +80,9 @@ void endSamplePeriod()
         } else {
             voltage = 0;
         }
-        MySerial::printf("Duty cycle %d, RPM min %u, avg %u, max %u, battery min %d, avg %d, max %d, voltage %d.%d, tone %s, samples %lu\r\n",
+        serialPrintf("Duty cycle %d, RPM min %u, avg %u, max %u, battery min %d, avg %d, max %d, filt %s, voltage %d.%d, tone %s, samples %lu\r\n",
             currentDutyCycle, lowestFanRPM, averageRPM, highestFanRPM,
-            lowestBatteryLevel, averageBatteryLevel, highestBatteryLevel,
+            lowestBatteryLevel, averageBatteryLevel, highestBatteryLevel, renderDouble(filteredBatteryLevel),
             (int)voltage, int(voltage * 10) - (int(voltage) * 10), 
             toneOn ? "on" : "off", sampleCount);
     }
@@ -87,7 +96,7 @@ void setFanDutyCycle(int dutyCycle)
     fanController.setDutyCycle(dutyCycle);
     beginSamplePeriod();
     skipReport = true;
-    MySerial::printf("Duty cycle %d\r\n\r\n", dutyCycle);
+    serialPrintf("Duty cycle %d\r\n\r\n", dutyCycle);
 }
 
 int increment = 10;
@@ -146,7 +155,8 @@ void setClockPrescaler(int prescalerSelect)
 void setup()
 {
     setClockPrescaler(0);
-    MySerial::init();
+    serialInit();
+    serialPrintf("PAPR Calibrator");
     upButton.setCallback(onUpButton);
     downButton.setCallback(onDownButton);
     fanController.begin();
