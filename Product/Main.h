@@ -28,9 +28,9 @@ enum FanSpeed { fanLow, fanMedium, fanHigh };
 // We can be either on or off, and either charging or not charging.
 enum PAPRState { stateOff, stateOn, stateOffCharging, stateOnCharging };
 
-// - High Power Mode means that all parts of the PCB are fully powered 
+// - High Power Mode means that the PCB and MCU are fully powered 
 // - Low Power Mode means that the MCU receives reduced voltage (approx 2.5 instead of 5)
-//   and the rest of the PCB receives no power. In this mode, the MCU runs at a
+//   and the rest of the PCB receives no power. In this mode, we must run the MCU at a
 //   reduced clock speed (1 MHz instead of 8 MHz).
 //
 // We use low power mode when we're in the Power Off state, in order to conserve power
@@ -45,7 +45,7 @@ public:
     void loop();
 
     // The Hardware object gives access to all the microcontroller hardware such as pins and timers. Please always use this object,
-    // and never access any hardware or Arduino APIs directly. This gives us the abiity to use a fake hardware object for unit testing.
+    // and never access any hardware or Arduino APIs directly. This gives us the option of using a fake hardware object for unit testing.
     Hardware hw;
 
     // The PressDetector object polls a pin, and calls a callback when the pin value changes. There is one PressDetector object per button.
@@ -77,6 +77,7 @@ private:
     void updateBatteryVoltage();
     void updateFanLEDs();
     void updateBatteryLEDs();
+    void updateBatteryTimers();
     bool isCharging();
     void cancelAlert();
     bool doPowerOffWarning();
@@ -96,7 +97,7 @@ private:
     FanSpeed currentFanSpeed;
 
     // After we change the fan speed, we stop checking the RPMs for a few seconds, to let the speed stabilize.
-    unsigned long dontCheckFanSpeedUntil = 0;
+    unsigned long dontCheckFanSpeedUntil;
 
     /********************************************************************
      * Battery and power data
@@ -109,6 +110,10 @@ private:
     unsigned long numBatteryVoltageSamples;
     float batteryVolts; // The battery voltage right now.
     PAPRState paprState;
+    unsigned long chargeStartTimeMillis; // millisecond timestamp of when the battery charger started up
+    unsigned long lastVoltageChangeTimeMillis; // millisecond timestamp of when the battery voltage last changed
+    bool prevIsCharging;
+    double prevBatteryVolts;
 
     /********************************************************************
      * Alert data

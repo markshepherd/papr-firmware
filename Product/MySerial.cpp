@@ -11,7 +11,7 @@ const int serialTxPin = MOSI_PIN;
 
 SoftwareSerial mySerial(serialRxPin, serialTxPin);
 
-void MySerial::printf(const char* __fmt, ...) {
+void serialPrintf(const char* __fmt, ...) {
 	va_list args;
 	char buffer[200];
 	va_start(args, __fmt);
@@ -21,7 +21,7 @@ void MySerial::printf(const char* __fmt, ...) {
 	mySerial.print("\r\n");
 }
 
-void MySerial::init() {
+void serialInit() {
 	mySerial.begin(57600);
 }
 #endif

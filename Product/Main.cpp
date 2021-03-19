@@ -16,18 +16,18 @@
 // more often, while a higher value will give more accurate and smooth readings.
 const int FAN_SPEED_READING_INTERVAL = 1000;
 
-// The duty cycle for each fan speed.
+// The duty cycle for each fan speed. Indexed by FanSpeed.
 const byte fanDutyCycles[] = { 0, 50, 100 };
 
-// The expected RPM for each fan speed.
+// The expected RPM for each fan speed. Indexed by FanSpeed.
 const unsigned int expectedFanRPM[] = { 3123, 12033, 15994 };
 
 // How much tolerance do we give when checking for correct fan RPM
-const float lowestOkFanRPM = 0.5;
-const float highestOkFanRPM = 2.0;
+const float LOWEST_FAN_OK_RPM = 0.5;
+const float HIGHEST_FAN_OK_RPM = 2.0;
 
 // The fan speed when we startup.
-const FanSpeed defaultFanSpeed = fanLow;
+const FanSpeed DEFAULT_FAN_SPEED = fanLow;
 
 // When we change the fan speed, allow at least this many milliseconds before checking the speed.
 const int FAN_STABILIZE_MILLIS = 3000;
@@ -74,14 +74,13 @@ measured:
     cutoff 16.2 volts = 525
 */
 
-// Power Modes
-const int FULL_POWER = 1;
-const int lowPower = 0;
-
-const double ampsPerChargeFlowUnit = .0065;
-const float voltsPerVoltageUnit = 0.0308;
-const double batteryCapacityCoulombs = 25200;
-const double chargeAmpsWhenFull = 0.2;
+const double AMPS_PER_CHARGE_FLOW_UNIT = .0065;
+const float VOLTS_PER_VOLTAGE_UNIT = 0.0308;
+const double BATTERY_CAPACITY_COULOMBS = 25200;
+const double CHARGE_AMPS_WHEN_FULL = 0.2;
+const int BATTERY_VOLTAGE_UPDATE_INTERVAL_MILLIS = 500;
+const double BATTERY_VOLTS_CHANGED_THRESHOLD = 0.05; // in volts
+const unsigned long CHARGER_WINDDOWN_TIME_MILLIS = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 /********************************************************************
  * Alert constants
@@ -121,9 +120,6 @@ void Main::allLEDsOn()
 void Main::setLEDs(const int* pinList, int onOff)
 {
     for (int i = 0; pinList[i] != -1; i += 1) {
-        if (pinList[i] == CHARGING_LED_PIN) {
-            //MySerial::printf("setLEDs write charge LED");
-        }
         hw.digitalWrite(pinList[i], onOff);
     }
 }
@@ -145,7 +141,6 @@ void Main::flashAllLEDs(int millis, int count)
 // This function pulses the lights and buzzer during an alert.
 void Main::onToggleAlert()
 {
-    //MySerial::printf("alert toggle");
     alertToggle = !alertToggle;
     setLEDs(currentAlertLEDs, alertToggle ? LED_ON : LED_OFF);
     hw.analogWrite(BUZZER_PIN, alertToggle ? BUZZER_ON : BUZZER_OFF);
@@ -161,9 +156,6 @@ void Main::enterAlertState(Alert alert)
     currentAlertLEDs = alertLEDs[alert];
     currentAlertMillis = alertMillis[alert];
     alertToggle = false;
-
-    // MySerial::printf("Enter alert %d %d %d", alert, currentAlertMillis[0], currentAlertMillis[1]);
-
     onToggleAlert();
 }
 
@@ -212,7 +204,7 @@ void Main::checkForFanAlert() {
     const unsigned int expectedRPM = expectedFanRPM[currentFanSpeed];
     fanHasRun |= (fanRPM != 0); // TEMP
     if (fanHasRun) { // TEMP
-        if ((fanRPM < (lowestOkFanRPM * expectedRPM)) || (fanRPM > (highestOkFanRPM * expectedRPM))) {
+        if ((fanRPM < (LOWEST_FAN_OK_RPM * expectedRPM)) || (fanRPM > (HIGHEST_FAN_OK_RPM * expectedRPM))) {
             enterAlertState(alertFanRPM);
         }
     }
@@ -225,6 +217,23 @@ void Main::checkForFanAlert() {
 bool Main::isCharging()
 {
     return hw.analogRead(BATTERY_VOLTAGE_PIN) > 700; // TEMP - should be hw.analogRead(CHARGE_FLOW_PIN) < 512
+}
+
+void Main::updateBatteryTimers()
+{
+    bool isChargingNow = isCharging();
+    if (isChargingNow && !prevIsCharging) {
+        chargeStartTimeMillis = hw.millis();
+        serialPrintf("Start charging at %ld", chargeStartTimeMillis);
+    }
+    prevIsCharging = isChargingNow;
+
+    if (abs(batteryVolts - prevBatteryVolts) >= BATTERY_VOLTS_CHANGED_THRESHOLD) {
+        // voltage has changed since last time we checked
+        lastVoltageChangeTimeMillis = hw.millis();
+        prevBatteryVolts = batteryVolts;
+        serialPrintf("Voltage changed at %ld", lastVoltageChangeTimeMillis);
+    }
 }
 
 void Main::updateBatteryCoulombs()
@@ -241,43 +250,39 @@ void Main::updateBatteryCoulombs()
     else if (batteryVolts < 16) chargeFlow = 1023;     // 15 volts = slow discharge
     else if (batteryVolts > 25) chargeFlow = -409600;  // 26 volts = fast charge
     else if (batteryVolts > 22) chargeFlow = 0;        // 23 volts = slow charge
-    //MySerial::printf("chargeFlow %ld", chargeFlow);
+    //serialPrintf("chargeFlow %ld", chargeFlow);
  
     // Calculate the time interval between this sample and the previous.
     unsigned long deltaMicros = now - lastBatteryCoulombsUpdateMicros; // check that wraparound works properly
     lastBatteryCoulombsUpdateMicros = now;
 
-    // Use the Charge Flow input to calculate the current that is flowing into or out of the battery.
+    // Use the Charge Flow reading to calculate the current that is flowing into or out of the battery.
     // We are assuming that the reported flow rate was constant between the current and previous samples.
     chargeFlow -= 512; // -512(charging) to +511(discharging)
-    double chargeFlowAmps = ((double)-chargeFlow) * ampsPerChargeFlowUnit; // > 0 means charging
+    double chargeFlowAmps = ((double)-chargeFlow) * AMPS_PER_CHARGE_FLOW_UNIT; // > 0 means charging
     double deltaSeconds = ((double)deltaMicros) / 1000000.0;
+    double deltaCoulombs = chargeFlowAmps * deltaSeconds;
 
-    // update our counter of the battery charge
-    batteryCoulombs += chargeFlowAmps * deltaSeconds;
-    if (batteryCoulombs < 0) batteryCoulombs = 0;
-    if (batteryCoulombs > batteryCapacityCoulombs) batteryCoulombs = batteryCapacityCoulombs;
+    // update our counter of the battery charge. Don't let the number get out of range.
+    batteryCoulombs += constrain(deltaCoulombs, 0, BATTERY_CAPACITY_COULOMBS);
 
-    // if the battery has reached the maximum charge, we can safely assume that the battery coulomb counter can be
-    // set to 100% of the battery capacity. We know we've reached the maximum charge when the charging current drops below approx 200 mA.
-    if (chargeFlowAmps > 0 && chargeFlowAmps < chargeAmpsWhenFull) {
-        MySerial::printf("Charge full. chargeFlow %ld, %d", chargeFlow, analogRead(CHARGE_FLOW_PIN));
-        batteryCoulombs = batteryCapacityCoulombs;
+    // if the battery has reached the maximum charge, we can safely set the battery coulomb counter
+    // to 100% of the battery capacity. We know we've reached the maximum charge when:
+    unsigned long nowMillis = hw.millis();
+    if ((chargeFlowAmps >= 0) &&                                                    // we are charging right now, AND
+        (nowMillis - chargeStartTimeMillis > CHARGER_WINDDOWN_TIME_MILLIS) &&       // we've been charging for a few minutes. AND
+        (nowMillis - lastVoltageChangeTimeMillis > CHARGER_WINDDOWN_TIME_MILLIS) && // the battery voltage hasn't changed for a few minutes, AND
+        chargeFlowAmps < CHARGE_AMPS_WHEN_FULL) {                                   // the current flow rate is below a threshold
+        batteryCoulombs = BATTERY_CAPACITY_COULOMBS;
+        serialPrintf("Charge full. chargeFlow %ld milliAmps", long(chargeFlowAmps * 1000.0));
     }
 }
 
 void Main::updateBatteryVoltage()
 {
     unsigned long now = hw.millis();
-    if (now - lastBatteryVoltsUpdateMillis > 500 && numBatteryVoltageSamples > 0) {
-        float newVolts = batteryVoltageAccumulator / numBatteryVoltageSamples * voltsPerVoltageUnit;
-        
-        //newVolts = (float)((int)(newVolts * 10)) / 10.0;
-        //if (newVolts != batteryVolts) {
-        //    MySerial::printf("volts %d.%d", (int)newVolts, ((int)(newVolts * 10)) % 10);
-        //}
-
-        batteryVolts = newVolts;
+    if (now - lastBatteryVoltsUpdateMillis > BATTERY_VOLTAGE_UPDATE_INTERVAL_MILLIS && numBatteryVoltageSamples > 0) {
+        batteryVolts = batteryVoltageAccumulator / numBatteryVoltageSamples * VOLTS_PER_VOLTAGE_UNIT;
         batteryVoltageAccumulator = 0;
         numBatteryVoltageSamples = 0;
         lastBatteryVoltsUpdateMillis = now;
@@ -289,7 +294,7 @@ void Main::updateBatteryVoltage()
 
 // Call this to update the battery level LEDs.
 void Main::updateBatteryLEDs() {
-    int percentFull = (int)(batteryCoulombs / batteryCapacityCoulombs * 100.0);
+    int percentFull = (int)(batteryCoulombs / BATTERY_CAPACITY_COULOMBS * 100.0);
 
     // Turn on/off the battery LEDs as required
     hw.digitalWrite(BATTERY_LED_LOW_PIN,   (percentFull < 40)                        ? LED_ON : LED_OFF); // red
@@ -297,13 +302,12 @@ void Main::updateBatteryLEDs() {
     hw.digitalWrite(BATTERY_LED_HIGH_PIN,  (percentFull > 70)                        ? LED_ON : LED_OFF); // green
 
     // Turn on/off the charging indicator LED as required
-    //MySerial::printf("updateBatteryLEDs write charge LED");
     hw.digitalWrite(CHARGING_LED_PIN, isCharging() ? LED_ON : LED_OFF); // orange
 }
 
 void Main::checkForBatteryAlert()
 {
-    int percentFull = (int)(batteryCoulombs / batteryCapacityCoulombs * 100.0);
+    int percentFull = (int)(batteryCoulombs / BATTERY_CAPACITY_COULOMBS * 100.0);
 
     if (percentFull < 8) {
         enterAlertState(alertBatteryLow);
@@ -346,7 +350,6 @@ void Main::setPowerMode(PowerMode mode)
 
 void Main::enterState(PAPRState newState)
 {
-    //MySerial::printf("enter state %d", newState);
     paprState = newState;
     switch (newState) {
         case stateOn:
@@ -361,11 +364,13 @@ void Main::enterState(PAPRState newState)
             break;
 
         case stateOff:
+            currentFanSpeed = DEFAULT_FAN_SPEED;
             cancelAlert();
             allLEDsOff();
             break;
 
         case stateOffCharging:
+            currentFanSpeed = DEFAULT_FAN_SPEED;
             cancelAlert();
             allLEDsOff();
             updateBatteryLEDs();
@@ -373,7 +378,10 @@ void Main::enterState(PAPRState newState)
     }
 }
 
-// Be careful inside the nap() function.
+// Be careful inside this function, it's the only place where we mess around with power and speed
+// settings. When this function returns, the board MUST be at full power, the MCU clock
+// MUST be at full speed, and the watchdog timer MUST be enabled. Be careful, this code
+// contains loops that could go infinite if you mess things up.
 void Main::nap()
 {
     setPowerMode(lowPowerMode);
@@ -383,7 +391,7 @@ void Main::nap()
 
         // TEMP
         hw.digitalWrite(FAN_HIGH_LED_PIN, LED_ON);
-        hw.delay(10);
+        hw.delayMicroseconds(100);
         hw.digitalWrite(FAN_HIGH_LED_PIN, LED_OFF);
 
         // Read the charging indicator...
@@ -428,7 +436,8 @@ bool Main::doPowerOffWarning()
     allLEDsOn();
     hw.analogWrite(BUZZER_PIN, BUZZER_ON);
 
-    // If the user holds the button for long enough.
+    // If the user holds the button for long enough, we will return true,
+    // which tells the caller to go ahead and enter the off state. 
     unsigned long startMillis = hw.millis();
     while (hw.digitalRead(POWER_PIN) == BUTTON_PUSHED) {
         if (hw.millis() - startMillis > POWER_OFF_BUTTON_HOLD_MILLIS) {
@@ -438,7 +447,8 @@ bool Main::doPowerOffWarning()
         }
     }
 
-    // The user did not hold the button long enough. Restore the UI.
+    // The user did not hold the button long enough. Restore the UI
+    // and tell the caller not to enter the off state.
     allLEDsOff();
     hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
     if (currentAlert != alertFanRPM) {
@@ -474,32 +484,14 @@ void Main::onPowerPress()
             enterState(stateOnCharging);
             break;
     }
-
-#if 0
-    // This code turns on all the lights and buzzer to warn you when you push the Power Off button.
-    //
-    // Turn on all LEDs, and the buzzer
-    allLEDsOn();
-    hw.analogWrite(BUZZER_PIN, BUZZER_ON);
-
-    // Wait until the power goes off, or the user releases the button.
-    while (hw.digitalRead(MONITOR_PIN) == BUTTON_PUSHED) {}
-
-    // The user must have pushed and released the button very quickly, not long enough
-    // for the machine to shut itself off. Go back to normal.
-    allLEDsOff();
-    hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
-    setFanSpeed(currentFanSpeed); // to update the fan speed LEDs
-    // The battery level indicator will be updated by updateBattery() on the next call to loop().
-#endif
 }
 
 void Main::powerButtonInterruptCallback()
 {
     if (hw.digitalRead(POWER_PIN) == BUTTON_PUSHED && hw.digitalRead(FAN_UP_PIN) == BUTTON_PUSHED && hw.digitalRead(FAN_DOWN_PIN) == BUTTON_PUSHED) {
-        // it's a user interrupt
+        // it's a user reset
         hw.reset();
-        // for testing - cause a watchdog timeout
+        // TEMP cause a watchdog timeout
         //while (true) {
         //    hw.digitalWrite(ERROR_LED_PIN, LED_ON);
         //    hw.digitalWrite(ERROR_LED_PIN, LED_OFF);
@@ -566,9 +558,11 @@ void Main::setup()
     hw.initializeDevices();
     hw.digitalWrite(POWER_PIN, BUTTON_RELEASED); // TEMP for some reason, this pin's initial value is "pushed"
 
-    MySerial::init();
-    MySerial::printf("PAPR Rev 3, MCUSR = %x, pow %d, down %d, up %d", resetFlags,
+    #ifdef SERIAL_ENABLED
+    serialInit();
+    serialPrintf("PAPR Rev 3, MCUSR = %x, pow %d, down %d, up %d", resetFlags,
         hw.digitalRead(POWER_PIN), hw.digitalRead(FAN_DOWN_PIN), hw.digitalRead(FAN_UP_PIN));
+    #endif
 
     // Decide what power state we should be in.
     // If the reset that just happened was NOT a simple power-on, then flash some LEDs to tell the user something happened.
@@ -584,13 +578,13 @@ void Main::setup()
     } else {
         // The power just came on. This will happen when:
         // - somebody in the factory just connected the battery to the PCB; or
-        // - the battery had been fully drained (and therefore not delivering any power), but the user just plugged in the charger.
+        // - the battery had been fully drained (and therefore not delivering any power), and the user just plugged in the charger.
         initialPowerState = stateOff;
     }
 
     // Initialize the fan
     fanController.begin();
-    setFanSpeed(defaultFanSpeed);
+    setFanSpeed(DEFAULT_FAN_SPEED);
 
     // Enable the watchdog timer. (Note: Don't make the timeout value too small - we need to give the IDE a chance to
     // call the bootloader in case something dumb happens during development and the WDT
@@ -605,15 +599,21 @@ void Main::setup()
     batteryVoltageAccumulator = 0;
     numBatteryVoltageSamples = 0;
     batteryVolts = 20.0;
-    batteryCoulombs = batteryCapacityCoulombs / 2.0;
+    batteryCoulombs = BATTERY_CAPACITY_COULOMBS / 2.0;
+
+    chargeStartTimeMillis = 0;
+    lastVoltageChangeTimeMillis = 0;
+    prevIsCharging = false;
+    prevBatteryVolts = 0;
 
     enterState(initialPowerState);
 }
 
 void Main::doAllUpdates()
 {
-    updateBatteryCoulombs();
     updateBatteryVoltage();
+    updateBatteryTimers();
+    updateBatteryCoulombs();
     if (currentAlert != alertFanRPM) {
         updateFanLEDs();
     }
@@ -634,30 +634,34 @@ void Main::doAllUpdates()
 //unsigned long lastBatteryPrintMillis = 0;
 
 // TEMP
-unsigned long loopCount = 0;
-unsigned long lastLoopCountReportMillis = 0;
+//unsigned long loopCount = 0;
+//unsigned long lastLoopCountReportMillis = 0;
 
 void Main::loop()
 {
     // TEMP
     //unsigned long now = hw.millis();
     //if (now - lastBatteryPrintMillis > 5000) {
-    //    int percentFull = (int)(batteryCoulombs / batteryCapacityCoulombs * 100.0);
-    //    MySerial::printf("batteryCoulombs %ld = %d percent", (long)batteryCoulombs, percentFull);
+    //    int percentFull = (int)(batteryCoulombs / BATTERY_CAPACITY_COULOMBS * 100.0);
+    //    serialPrintf("batteryCoulombs %ld = %d percent", (long)batteryCoulombs, percentFull);
     //    lastBatteryPrintMillis = now;
     //}
 
     // TEMP
-    if (hw.millis() - lastLoopCountReportMillis > 10000) {
-        MySerial::printf("%ld loops in %ld millis", loopCount, hw.millis() - lastLoopCountReportMillis);
-        lastLoopCountReportMillis = hw.millis();
-        loopCount = 0;
-    }
+    //if (hw.millis() - lastLoopCountReportMillis > 10000) {
+    //    serialPrintf("%ld loops in %ld millis", loopCount, hw.millis() - lastLoopCountReportMillis);
+    //    lastLoopCountReportMillis = hw.millis();
+    //    loopCount = 0;
+    //} else {
+    //    loopCount += 1;
+    //}
+    // March 18, 2021 - one loop() takes just under 1 millisecond, at 8 Mhz clock
 
     hw.wdt_reset_();
 
     switch (paprState) {
         case stateOn:
+            // Update everything
             doAllUpdates();
             if (isCharging()) {
                 enterState(stateOnCharging); 
@@ -665,12 +669,14 @@ void Main::loop()
             break;
 
         case stateOff:
+            // Update nothing
             nap();
             lastBatteryCoulombsUpdateMicros = hw.micros();
             lastBatteryVoltsUpdateMillis = hw.micros();
             break;
 
         case stateOnCharging:
+            // Update everything
             doAllUpdates();
             if (!isCharging()) {
                 enterState(stateOn);
@@ -678,8 +684,10 @@ void Main::loop()
             break;
 
         case stateOffCharging:
-            updateBatteryCoulombs();
+            // Only do updates related to battery
             updateBatteryVoltage();
+            updateBatteryTimers();
+            updateBatteryCoulombs();
             updateBatteryLEDs();
             buttonPower.update();
             if (!isCharging()) {

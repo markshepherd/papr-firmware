@@ -1,14 +1,8 @@
 #pragma once
 
-#undef SERIAL_ENABLED
+#define SERIAL_ENABLED
 
-class MySerial {
-public:
 #ifdef SERIAL_ENABLED
-    static void init();
-    static void printf(const char* __fmt, ...);
-#else
-    static void init() {}
-    static void printf(const char* __fmt, ...) {}
+void serialInit();
+void serialPrintf(const char* __fmt, ...);
 #endif
-};
