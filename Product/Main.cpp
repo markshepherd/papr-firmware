@@ -79,7 +79,7 @@ const float VOLTS_PER_VOLTAGE_UNIT = 0.0308;
 const double BATTERY_CAPACITY_COULOMBS = 25200;
 const double CHARGE_AMPS_WHEN_FULL = 0.2;
 const int BATTERY_VOLTAGE_UPDATE_INTERVAL_MILLIS = 500;
-const double BATTERY_VOLTS_CHANGED_THRESHOLD = 0.05; // in volts
+const double BATTERY_VOLTS_CHANGED_THRESHOLD = 0.1; // in volts
 const unsigned long CHARGER_WINDDOWN_TIME_MILLIS = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 /********************************************************************
@@ -242,39 +242,43 @@ void Main::updateBatteryCoulombs()
 
     // Calculate the time since our last sample, and grab a new sample. Do these back-to-back to help keep timing accurate.
     unsigned long now = hw.micros();
-    long chargeFlow = hw.analogRead(CHARGE_FLOW_PIN); // 0 to 1023, < 512 means charging
+    long chargeFlow = hw.analogRead(CHARGE_FLOW_PIN); // 0 to 1023, < 512 means charging, the units are arbitrary "charge flow units"
 
     // TEMP
     chargeFlow = 512;                                  // 20 volts = no charge flow
     if (batteryVolts < 13) chargeFlow = 409600;        // 12 volts = fast discharge
     else if (batteryVolts < 16) chargeFlow = 1023;     // 15 volts = slow discharge
     else if (batteryVolts > 25) chargeFlow = -409600;  // 26 volts = fast charge
-    else if (batteryVolts > 22) chargeFlow = 0;        // 23 volts = slow charge
+    else if (batteryVolts > 22) chargeFlow = 500;      // 23 volts = very slow charge
+    //chargeFlow = 500; // TEMP a slight charging flow, should trigger battery full
     //serialPrintf("chargeFlow %ld", chargeFlow);
- 
+
     // Calculate the time interval between this sample and the previous.
     unsigned long deltaMicros = now - lastBatteryCoulombsUpdateMicros; // check that wraparound works properly
     lastBatteryCoulombsUpdateMicros = now;
 
     // Use the Charge Flow reading to calculate the current that is flowing into or out of the battery.
-    // We are assuming that the reported flow rate was constant between the current and previous samples.
-    chargeFlow -= 512; // -512(charging) to +511(discharging)
-    double chargeFlowAmps = ((double)-chargeFlow) * AMPS_PER_CHARGE_FLOW_UNIT; // > 0 means charging
+    // We assume that the flow rate was constant between the current and previous samples.
+    chargeFlow -= 512; // shift the range to -512(charging) to +511(discharging)
+    double chargeFlowAmps = ((double)-chargeFlow) * AMPS_PER_CHARGE_FLOW_UNIT; // convert to amps, and flip so that > 0 means charging
     double deltaSeconds = ((double)deltaMicros) / 1000000.0;
     double deltaCoulombs = chargeFlowAmps * deltaSeconds;
 
     // update our counter of the battery charge. Don't let the number get out of range.
-    batteryCoulombs += constrain(deltaCoulombs, 0, BATTERY_CAPACITY_COULOMBS);
+    batteryCoulombs = batteryCoulombs + deltaCoulombs;
+    batteryCoulombs = constrain(batteryCoulombs, 0, BATTERY_CAPACITY_COULOMBS);
 
     // if the battery has reached the maximum charge, we can safely set the battery coulomb counter
     // to 100% of the battery capacity. We know we've reached the maximum charge when:
     unsigned long nowMillis = hw.millis();
-    if ((chargeFlowAmps >= 0) &&                                                    // we are charging right now, AND
+    if ((batteryCoulombs != BATTERY_CAPACITY_COULOMBS) &&
+        (chargeFlowAmps >= 0) &&                                                    // we're charging right now, AND
         (nowMillis - chargeStartTimeMillis > CHARGER_WINDDOWN_TIME_MILLIS) &&       // we've been charging for a few minutes. AND
         (nowMillis - lastVoltageChangeTimeMillis > CHARGER_WINDDOWN_TIME_MILLIS) && // the battery voltage hasn't changed for a few minutes, AND
-        chargeFlowAmps < CHARGE_AMPS_WHEN_FULL) {                                   // the current flow rate is below a threshold
+        chargeFlowAmps < CHARGE_AMPS_WHEN_FULL)                                     // the current flow rate is below a threshold
+    {
+        serialPrintf("Charge full. batteryCoulombs was %s. ChargeFlow %ld milliAmps.", renderDouble(batteryCoulombs), long(chargeFlowAmps * 1000.0));
         batteryCoulombs = BATTERY_CAPACITY_COULOMBS;
-        serialPrintf("Charge full. chargeFlow %ld milliAmps", long(chargeFlowAmps * 1000.0));
     }
 }
 

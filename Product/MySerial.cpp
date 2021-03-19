@@ -38,7 +38,7 @@ char* renderDouble(double number, char* pBuffer)
 	double fraction = number - (double)integerPart;
 	char buff[10];
 	sprintf(buff, "%d", (int)(fraction * 1000.0) + 1000);
-	sprintf(pBuffer, "yyyy%s %ld.%s", (negative ? "-" : ""), integerPart, &buff[1]);
+	sprintf(pBuffer, "%s %ld.%s", (negative ? "-" : ""), integerPart, &buff[1]);
 	return pBuffer;
 }
 #endif
