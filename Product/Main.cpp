@@ -8,6 +8,9 @@
 #include <LowPower.h>
 #include "MySerial.h"
 
+// TEMPORARY - 1 POWER BUTTON
+const int POWER_PIN = POWER_ON_PIN;
+
 /********************************************************************
  * Fan constants
  ********************************************************************/
@@ -216,7 +219,7 @@ void Main::checkForFanAlert() {
 
 bool Main::isCharging()
 {
-    return hw.analogRead(BATTERY_VOLTAGE_PIN) > 700; // TEMP - should be hw.analogRead(CHARGE_FLOW_PIN) < 512
+    return hw.analogRead(CHARGE_CURRENT_PIN) < (512 - 10); // TODO what's the right fudge factor?
 }
 
 void Main::updateBatteryTimers()
@@ -242,19 +245,20 @@ void Main::updateBatteryCoulombs()
 
     // Calculate the time since our last sample, and grab a new sample. Do these back-to-back to help keep timing accurate.
     unsigned long now = hw.micros();
-    long chargeFlow = hw.analogRead(CHARGE_FLOW_PIN); // 0 to 1023, < 512 means charging, the units are arbitrary "charge flow units"
-
-    // TEMP
-    chargeFlow = 512;                                  // 20 volts = no charge flow
-    if (batteryVolts < 13) chargeFlow = 409600;        // 12 volts = fast discharge
-    else if (batteryVolts < 16) chargeFlow = 1023;     // 15 volts = slow discharge
-    else if (batteryVolts > 25) chargeFlow = -409600;  // 26 volts = fast charge
-    else if (batteryVolts > 22) chargeFlow = 500;      // 23 volts = very slow charge
-    //chargeFlow = 500; // TEMP a slight charging flow, should trigger battery full
-    //serialPrintf("chargeFlow %ld", chargeFlow);
+    long chargeFlow = hw.analogRead(CHARGE_CURRENT_PIN); // 0 to 1023, < 512 means charging, the units are arbitrary "charge flow units"
+   
+    if (0) { // TEMP
+        chargeFlow = 512;                                  // 20 volts = no charge flow
+        if (batteryVolts < 13) chargeFlow = 409600;        // 12 volts = fast discharge
+        else if (batteryVolts < 16) chargeFlow = 1023;     // 15 volts = slow discharge
+        else if (batteryVolts > 25) chargeFlow = -409600;  // 26 volts = fast charge
+        else if (batteryVolts > 22) chargeFlow = 500;      // 23 volts = very slow charge
+        //chargeFlow = 500; // TEMP a slight charging flow, should trigger battery full
+        //serialPrintf("chargeFlow %ld", chargeFlow);
+    }
 
     // Calculate the time interval between this sample and the previous.
-    unsigned long deltaMicros = now - lastBatteryCoulombsUpdateMicros; // check that wraparound works properly
+    unsigned long deltaMicros = now - lastBatteryCoulombsUpdateMicros;
     lastBatteryCoulombsUpdateMicros = now;
 
     // Use the Charge Flow reading to calculate the current that is flowing into or out of the battery.
@@ -322,36 +326,6 @@ void Main::checkForBatteryAlert()
  * states and modes
  ********************************************************************/
 
-// A note about the MCU clock: in low power mode, the MCU only receives 2.5 volts power,
-// which means we have to run it at a reduced clock speed. We use 1 MHz instead of the normal 8 MHz.
-// At this reduced speed, the delay() and millis() functions are 8x slower, and there may be other things
-// that don't work right. To avoid problems, we confine reduced speed mode to 2 small places in the code:
-// - when the power first comes on. (Because CLKDIV8 in the 328p low fuse byte causes the MCU to start up at 1 MHz).
-// - when we nap()
-void Main::setPowerMode(PowerMode mode)
-{
-    if (mode == fullPowerMode) {
-        // Set the PCB to Full Power mode.
-        hw.digitalWrite(BOARD_POWER_PIN, HIGH);
-
-        // Wait for things to settle down
-        hw.delay(10);
-
-        // Set the clock prescaler to give the max speed.
-        hw.setClockPrescaler(0);
-
-        // We are now running at full power, full speed.
-    } else {
-        // Full speed doesn't work in low power mode, so drop the MCU clock speed to 1 MHz (8 MHz internal oscillator divided by 2**3). 
-        hw.setClockPrescaler(3);
-
-        // Now we can enter low power mode,
-        hw.digitalWrite(BOARD_POWER_PIN, LOW);
-
-        // We are now running at low power, low speed.
-    }
-}
-
 void Main::enterState(PAPRState newState)
 {
     paprState = newState;
@@ -388,8 +362,8 @@ void Main::enterState(PAPRState newState)
 // contains loops that could go infinite if you mess things up.
 void Main::nap()
 {
-    setPowerMode(lowPowerMode);
     hw.wdt_disable();
+    hw.setPowerMode(lowPowerMode);
     while (true) {
         LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
 
@@ -410,7 +384,7 @@ void Main::nap()
         hw.digitalWrite(BOARD_POWER_PIN, LOW);
 
         if (charging) {
-            setPowerMode(fullPowerMode);
+            hw.setPowerMode(fullPowerMode);
             enterState(stateOffCharging);
             hw.wdt_enable(WDTO_8S);
             return;
@@ -420,7 +394,7 @@ void Main::nap()
         int pin = hw.digitalRead(POWER_PIN);
         while (hw.digitalRead(POWER_PIN) == BUTTON_PUSHED) {
             if (hw.millis() - wakeupTime > 125) { // we're at 1/8 speed, so this is really 1000 ms (8 * 125)
-                setPowerMode(fullPowerMode);
+                hw.setPowerMode(fullPowerMode);
                 enterState(stateOn);
                 while (hw.digitalRead(POWER_PIN) == BUTTON_PUSHED) {}
                 hw.wdt_enable(WDTO_8S);
@@ -555,12 +529,11 @@ void Main::setup()
 
     // If the power has just come on, then the PCB is in Low Power mode, and the MCU
     // is running at 1 MHz (because the CKDIV8 fuse bit is programmed). Switch to full speed.
-    setPowerMode(fullPowerMode);
+    hw.setPowerMode(fullPowerMode);
 
     // Initialize the hardware
     hw.configurePins();
     hw.initializeDevices();
-    hw.digitalWrite(POWER_PIN, BUTTON_RELEASED); // TEMP for some reason, this pin's initial value is "pushed"
 
     #ifdef SERIAL_ENABLED
     serialInit();
@@ -603,7 +576,7 @@ void Main::setup()
     batteryVoltageAccumulator = 0;
     numBatteryVoltageSamples = 0;
     batteryVolts = 20.0;
-    batteryCoulombs = BATTERY_CAPACITY_COULOMBS / 2.0;
+    batteryCoulombs = BATTERY_CAPACITY_COULOMBS / 2.0; // TODO use the voltage to estimate this
 
     chargeStartTimeMillis = 0;
     lastVoltageChangeTimeMillis = 0;

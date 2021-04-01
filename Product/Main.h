@@ -5,7 +5,6 @@
  * by the Arduino runtime (product environment) or by the unit test runtime (unit test environment).
  */
 #pragma once
-#include "PAPRHwDefs.h"
 #include "Timer.h"
 #ifdef UNITTEST
 #include "UnitTest/MyButtonDebounce.h"
@@ -27,14 +26,6 @@ enum FanSpeed { fanLow, fanMedium, fanHigh };
 
 // We can be either on or off, and either charging or not charging.
 enum PAPRState { stateOff, stateOn, stateOffCharging, stateOnCharging };
-
-// - High Power Mode means that the PCB and MCU are fully powered 
-// - Low Power Mode means that the MCU receives reduced voltage (approx 2.5 instead of 5)
-//   and the rest of the PCB receives no power. In this mode, we must run the MCU at a
-//   reduced clock speed (1 MHz instead of 8 MHz).
-//
-// We use low power mode when we're in the Power Off state, in order to conserve power
-enum PowerMode { lowPowerMode, fullPowerMode };
 
 class Main {
 public:
@@ -68,7 +59,6 @@ private:
     void checkForFanAlert();
     void checkForBatteryAlert();
     void onPowerPress();
-    void setPowerMode(PowerMode mode);
     void enterState(PAPRState newState);
     void powerButtonInterruptCallback();
     void nap();

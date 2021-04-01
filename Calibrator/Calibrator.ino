@@ -1,64 +1,102 @@
-#include <SoftwareSerial.h>
-#include "MySerial.h"
-#include "PAPRHwDefs.h"
-#include <ButtonDebounce.h>
 #include <FanController.h>
+#include "PressDetector.h"
+#include "MySerial.h"
+#include "Hardware.h"
+#include <limits.h>
+
+// This app exercises all pins except POWER_OFF_PIN, POWER_ON_PIN.
 
 FanController fanController(FAN_RPM_PIN, 1000, FAN_PWM_PIN);
-ButtonDebounce upButton(FAN_UP_PIN, 100);
-ButtonDebounce downButton(FAN_DOWN_PIN, 100);
+
+Hardware hardware;
 
 int currentDutyCycle;
 
+class Sampler {
+public:
+    unsigned long highest;
+    unsigned long lowest;
+    unsigned long accumulator;
+    unsigned long sampleCount;
+
+    void reset()
+    {
+        highest = 0;
+        lowest = ULONG_MAX;
+        accumulator = 0;
+        sampleCount = 0;
+    }
+
+    void sample(unsigned long value)
+    {
+        if (value < lowest) lowest = value;
+        if (value > highest) highest = value;
+        accumulator += value;
+        sampleCount += 1;
+    }
+
+    unsigned long average()
+    {
+        return sampleCount > 0 ? (accumulator / sampleCount) : 0;
+    }
+};
+
 unsigned long samplePeriodEndMillis;
 bool skipReport;
-unsigned long sampleCount;
-unsigned int lowestFanRPM;
-unsigned int highestFanRPM;
-unsigned long fanRPMAccumulator;
-unsigned int lowestBatteryLevel;
-unsigned int highestBatteryLevel;
-unsigned long batteryLevelAccumulator;
+Sampler voltage;
+Sampler rpm;
+Sampler current;
 
 bool toneOn = false;
 
 float filteredBatteryLevel = 0.0;
 const float lowPassFilterN = 500.0;
 
+void onUpButton(int state);
+void onDownButton(int state);
+
+PressDetector upButton(FAN_UP_PIN, 100, onUpButton);
+PressDetector downButton(FAN_DOWN_PIN, 100, onDownButton);
+
+void allLEDs(int state)
+{
+    digitalWrite(BATTERY_LED_LOW_PIN, state);
+    digitalWrite(BATTERY_LED_MED_PIN, state);
+    digitalWrite(BATTERY_LED_HIGH_PIN, state);
+    digitalWrite(CHARGING_LED_PIN, state);
+    digitalWrite(FAN_LOW_LED_PIN, state);
+    digitalWrite(FAN_MED_LED_PIN, state);
+    digitalWrite(FAN_HIGH_LED_PIN, state);
+}
+
+void flashLEDs(int interval, int count)
+{
+    while (count-- > 0) {
+        allLEDs(LED_ON);
+        delay(interval);
+        allLEDs(LED_OFF);
+        delay(interval);
+    }
+}
+
+
 void beginSamplePeriod()
 {
     samplePeriodEndMillis = millis() + 5000;
     skipReport = false;
-    sampleCount = 0;
-    lowestFanRPM = 65535;
-    highestFanRPM = 0;
-    fanRPMAccumulator = 0;
-    lowestBatteryLevel = 65535;
-    highestBatteryLevel = 0;
-    batteryLevelAccumulator = 0;
+    voltage.reset();
+    rpm.reset();
+    current.reset();
 }
 
 void takeSample()
 {
-    sampleCount += 1;
-
-    unsigned int rpm = fanController.getSpeed();
-    fanRPMAccumulator += rpm;
-    if (rpm < lowestFanRPM) {
-        lowestFanRPM = rpm;
-    }
-    if (rpm > highestFanRPM) {
-        highestFanRPM = rpm;
-    }
-
     unsigned int batteryLevel = analogRead(BATTERY_VOLTAGE_PIN);
-    batteryLevelAccumulator += batteryLevel;
-    if (batteryLevel < lowestBatteryLevel) {
-        lowestBatteryLevel = batteryLevel;
-    }
-    if (batteryLevel > highestBatteryLevel) {
-        highestBatteryLevel = batteryLevel;
-    }
+    unsigned int chargeCurrent = analogRead(CHARGE_CURRENT_PIN);
+
+    rpm.sample(fanController.getSpeed());
+    voltage.sample(batteryLevel);
+    current.sample(chargeCurrent);
 
     // Do a low pass filter on the battery level.
     // I have found that the filtered battery level varies +/- 2 ADC units, which is much better
@@ -70,21 +108,12 @@ void takeSample()
 void endSamplePeriod()
 {
     if (!skipReport) {
-        unsigned int averageRPM = fanRPMAccumulator / sampleCount;
-        unsigned int averageBatteryLevel = batteryLevelAccumulator / sampleCount;
-        float voltage;
-        if (currentDutyCycle == 0) {
-            voltage = ((averageBatteryLevel - 452) * 0.030612) + 14;
-        } else if (currentDutyCycle == 100) {
-            voltage = ((averageBatteryLevel - 436) * 0.029851) + 14;
-        } else {
-            voltage = 0;
-        }
-        serialPrintf("Duty cycle %d, RPM min %u, avg %u, max %u, battery min %d, avg %d, max %d, filt %s, voltage %d.%d, tone %s, samples %lu\r\n",
-            currentDutyCycle, lowestFanRPM, averageRPM, highestFanRPM,
-            lowestBatteryLevel, averageBatteryLevel, highestBatteryLevel, renderDouble(filteredBatteryLevel),
-            (int)voltage, int(voltage * 10) - (int(voltage) * 10), 
-            toneOn ? "on" : "off", sampleCount);
+        serialPrintf("Duty cycle %d, RPM min %u, avg %u, max %u, VOLTAGE min %d, avg %d, max %d, filt %s, CURRENT min %d, avg %d, max %d, TONE %s, samples %lu\r\n",
+            currentDutyCycle,
+            rpm.lowest, rpm.average(), rpm.highest,
+            voltage.lowest, voltage.average(), voltage.highest, renderDouble(filteredBatteryLevel),
+            current.lowest, current.average(), current.highest,
+            toneOn ? "on" : "off", rpm.sampleCount);
     }
 }
 
@@ -144,26 +173,19 @@ void onDownButton(int state)
     }
 }
 
-void setClockPrescaler(int prescalerSelect)
-{
-    noInterrupts();
-    CLKPR = (1 << CLKPCE);
-    CLKPR = prescalerSelect;
-    interrupts();
-}
-
 void setup()
 {
-    setClockPrescaler(0);
-    serialInit();
-    serialPrintf("PAPR Calibrator");
-    upButton.setCallback(onUpButton);
-    downButton.setCallback(onDownButton);
+    hardware.setPowerMode(fullPowerMode);
+    hardware.configurePins();
+    hardware.initializeDevices();
+    Serial.begin(57600);
+    Serial.println("PAPR Calibrator");
+    Serial.println("Up/Down button: increase/decrease fan speed");
+    Serial.println("Up button while Down pressed: toggle increment");
+    Serial.println("Down button while Up pressed: toggle sound");
     fanController.begin();
     setFanDutyCycle(0);
-    pinMode(FAN_LOW_LED_PIN, OUTPUT);
-    pinMode(BATTERY_LED_MED_PIN, OUTPUT);
-    pinMode(BATTERY_VOLTAGE_PIN, INPUT);
+    flashLEDs(500, 3);
     digitalWrite(FAN_LOW_LED_PIN, LED_ON);
     digitalWrite(BATTERY_LED_MED_PIN, LED_ON);
 }

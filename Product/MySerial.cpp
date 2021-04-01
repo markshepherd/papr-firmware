@@ -1,15 +1,18 @@
 #include "MySerial.h"
 
 #ifdef SERIAL_ENABLED
-#include "PAPRHwDefs.h"
-#include <SoftwareSerial.h>
+//#include "stdarg.h"
+//#include "stdio.h"
+#include "Arduino.h"
+// #include "Hardware.h"
+// #include <SoftwareSerial.h>
 
-#define MOSI_PIN 11  /* PB3 */ 
-#define MOSO_PIN 12  /* PB4 */ 
-const int serialRxPin = MOSO_PIN;
-const int serialTxPin = MOSI_PIN;
+//#define MOSI_PIN 11  /* PB3 */ 
+//#define MOSO_PIN 12  /* PB4 */ 
+//const int serialRxPin = MOSO_PIN;
+//const int serialTxPin = MOSI_PIN;
 
-SoftwareSerial mySerial(serialRxPin, serialTxPin);
+//SoftwareSerial mySerial(serialRxPin, serialTxPin);
 
 void serialPrintf(const char* __fmt, ...) {
 	va_list args;
@@ -17,12 +20,13 @@ void serialPrintf(const char* __fmt, ...) {
 	va_start(args, __fmt);
 	vsnprintf(buffer, sizeof(buffer), __fmt, args);
 	va_end(args);
-	mySerial.print(buffer);
-	mySerial.print("\r\n");
+	Serial.println(buffer);
+	//mySerial.print("\r\n");
 }
 
 void serialInit() {
-	mySerial.begin(57600);
+	//mySerial.begin(57600);
+	Serial.begin(57600);
 }
 
 char* renderDouble(double number, char* pBuffer)

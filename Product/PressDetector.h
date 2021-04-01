@@ -1,4 +1,5 @@
 #pragma once
+#include "Hardware.h"
 
 /********************************************************************
  * Press detector for buttons
@@ -36,5 +37,10 @@ public:
             }
         }
         _currentState = state;
+    }
+
+    int state()
+    {
+        return _currentState;
     }
 };

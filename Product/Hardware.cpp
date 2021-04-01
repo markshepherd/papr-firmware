@@ -2,8 +2,6 @@
  * Hardware.cpp
  */
 #include "Hardware.h"
-#include "PAPRHwDefs.h"
-#include "MySerial.h"
 #include <avr/interrupt.h>
 
 /********************************************************************
@@ -13,25 +11,25 @@
 // Configure all the microcontroller IO pins that this app uses.
 void Hardware::configurePins()
 {
-    // Output pins are defined by a 1 bit
-    DDRB = DDRB | B00000100; // Outputs are PB2
-    DDRC = DDRC | B00111111; // Outputs are PC0, PC1, PC2, PC3, PC4, PC5
-    DDRD = DDRD | B00100101; // Outputs are PD0, PD2, PD5
-
-    // Input pins are defined by a 0 bit
-    DDRB = DDRB & B11111101; // Inputs are PB1
-    DDRC = DDRC & B01111111; // Inputs are PC7
-    DDRD = DDRD & B01110101; // Inputs are PD1, PD3, PD7
-
-    // PD7 needs a pullup resistor
-    PORTD = B10000000;
-
-    // If we were launched in Debug mode from Visual Micro, then the UART is probably enabled.
-    // Turn off the USART, because it wants to use pins 0 and 1 (a.k.a. PORTD0 and PORTD1) which we are using for other things.
-    //bitClear(UCSR0B, RXEN0);
-    //bitClear(UCSR0B, TXEN0);
-    //bitClear(UCSR0B, RXCIE0);
-    //bitClear(UCSR0B, UDRIE0);
+    pinMode(FAN_UP_PIN, INPUT_PULLUP);
+    pinMode(FAN_DOWN_PIN, INPUT_PULLUP);
+    pinMode(POWER_OFF_PIN, INPUT_PULLUP);
+    pinMode(POWER_ON_PIN, INPUT_PULLUP);
+    pinMode(FAN_PWM_PIN, OUTPUT);
+    pinMode(FAN_RPM_PIN, INPUT);
+    pinMode(BATTERY_VOLTAGE_PIN, INPUT);
+    pinMode(CHARGE_CURRENT_PIN, INPUT);
+    pinMode(BOARD_POWER_PIN, OUTPUT);
+    pinMode(BUZZER_PIN, OUTPUT);
+    pinMode(BATTERY_LED_LOW_PIN, OUTPUT);
+    pinMode(BATTERY_LED_MED_PIN, OUTPUT);
+    pinMode(BATTERY_LED_HIGH_PIN, OUTPUT);
+    pinMode(CHARGING_LED_PIN, OUTPUT);
+    pinMode(FAN_LOW_LED_PIN, OUTPUT);
+    pinMode(FAN_MED_LED_PIN, OUTPUT);
+    pinMode(FAN_HIGH_LED_PIN, OUTPUT);
+    pinMode(SERIAL_RX_PIN, INPUT);
+    pinMode(SERIAL_TX_PIN, OUTPUT);
 }
 
 // Set all devices to an initial state
@@ -41,8 +39,13 @@ void Hardware::initializeDevices()
     analogWrite(FAN_PWM_PIN, 0);
 
     // All LEDs off
-    PORTC = 0x3f;
-    PORTD = 0x01;
+    digitalWrite(BATTERY_LED_LOW_PIN, LED_OFF);
+    digitalWrite(BATTERY_LED_MED_PIN, LED_OFF);
+    digitalWrite(BATTERY_LED_HIGH_PIN, LED_OFF);
+    digitalWrite(CHARGING_LED_PIN, LED_OFF);
+    digitalWrite(FAN_LOW_LED_PIN, LED_OFF);
+    digitalWrite(FAN_MED_LED_PIN, LED_OFF);
+    digitalWrite(FAN_HIGH_LED_PIN, LED_OFF);
 
     // Buzzer off
     analogWrite(BUZZER_PIN, BUZZER_OFF);
@@ -74,12 +77,11 @@ void Hardware::reset()
 
 void (*powerButtonInterruptCallback) ();
 
-#ifndef SERIAL_ENABLED
+// note: this conflicts with SoftwareSerial. it's not a problem because we no longer use SoftwareSerial
 ISR(PCINT2_vect)
 {
     powerButtonInterruptCallback();
 }
-#endif
 
 void Hardware::setPowerButtonInterruptCallback(void (*callback) ())
 {
@@ -88,4 +90,28 @@ void Hardware::setPowerButtonInterruptCallback(void (*callback) ())
     // Enable Pin Change Interrupt for the Power On button.
     PCMSK2 |= 0x80; // set PCINT23 = 1 to enable PCINT on pin PD7
     PCICR |= 0x04; // set PCIE2 = 1 to enable PC interrupts
+}
+
+void Hardware::setPowerMode(PowerMode mode)
+{
+    if (mode == fullPowerMode) {
+        // Set the PCB to Full Power mode.
+        digitalWrite(BOARD_POWER_PIN, BOARD_POWER_ON);
+
+        // Wait for things to settle down
+        delay(10);
+
+        // Set the clock prescaler to give the max speed.
+        setClockPrescaler(0);
+
+        // We are now running at full power, full speed.
+    } else {
+        // Full speed doesn't work in low power mode, so drop the MCU clock speed to 1 MHz (8 MHz internal oscillator divided by 2**3). 
+        setClockPrescaler(3);
+
+        // Now we can enter low power mode,
+        digitalWrite(BOARD_POWER_PIN, BOARD_POWER_OFF);
+
+        // We are now running at low power, low speed.
+    }
 }
