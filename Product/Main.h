@@ -71,6 +71,7 @@ private:
     bool isCharging();
     void cancelAlert();
     bool doPowerOffWarning();
+    void initBatteryData();
 
     // Event handler glue code
     static void staticToggleAlert();
@@ -93,13 +94,14 @@ private:
      * Battery and power data
      ********************************************************************/
 
-    unsigned long lastBatteryCoulombsUpdateMicros;
     double batteryCoulombs; // How much charge is in the battery right now.
+    float batteryVolts; // The battery voltage right now.
+    PAPRState paprState;
+
+    unsigned long lastBatteryCoulombsUpdateMicros;
     unsigned long lastBatteryVoltsUpdateMillis;
     unsigned long batteryVoltageAccumulator;
     unsigned long numBatteryVoltageSamples;
-    float batteryVolts; // The battery voltage right now.
-    PAPRState paprState;
     unsigned long chargeStartTimeMillis; // millisecond timestamp of when the battery charger started up
     unsigned long lastVoltageChangeTimeMillis; // millisecond timestamp of when the battery voltage last changed
     bool prevIsCharging;

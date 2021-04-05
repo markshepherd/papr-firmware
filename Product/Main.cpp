@@ -3,6 +3,8 @@
  *
  * The main program of the PAPR product firmware.
  * 
+ * KEEP THE MAIN LOOP RUNNING AT ALL TIMES. DO NOT USE DELAY(). 
+ * 
  */
 #include "Main.h"
 #include <LowPower.h>
@@ -78,8 +80,8 @@ measured:
 */
 
 const double AMPS_PER_CHARGE_FLOW_UNIT = .0065;
-const float VOLTS_PER_VOLTAGE_UNIT = 0.0308;
-const double BATTERY_CAPACITY_COULOMBS = 25200;
+const float VOLTS_PER_VOLTAGE_UNIT = 0.0293255; // 0 to 1023 yields 0 to 30 volts
+const double BATTERY_CAPACITY_COULOMBS = 25200 * 1.0; // TODO what is the appropriate fudge factor, probably 0.8
 const double CHARGE_AMPS_WHEN_FULL = 0.2;
 const int BATTERY_VOLTAGE_UPDATE_INTERVAL_MILLIS = 500;
 const double BATTERY_VOLTS_CHANGED_THRESHOLD = 0.1; // in volts
@@ -89,15 +91,15 @@ const unsigned long CHARGER_WINDDOWN_TIME_MILLIS = 5 * 60 * 1000; // 5 minutes i
  * Alert constants
  ********************************************************************/
 
-// Which LEDs to flash for each type of alert. Indexed by enum Alert.
+// Which LEDs to flash for each type of alert.
 const int batteryLowLEDs[] = { BATTERY_LED_LOW_PIN, CHARGING_LED_PIN , -1 };
 const int fanRPMLEDs[] = { FAN_LOW_LED_PIN, FAN_MED_LED_PIN, FAN_HIGH_LED_PIN, -1 };
-const int* alertLEDs[] = { 0, batteryLowLEDs, fanRPMLEDs };
+const int* alertLEDs[] = { 0, batteryLowLEDs, fanRPMLEDs }; // Indexed by enum Alert.
 
 // What are the on & off durations for the pulsed lights and buzzer for each type of alert. 
 const int batteryAlertMillis[] = { 1000, 1000 };
 const int fanAlertMillis[] = { 200, 200 };
-const int* alertMillis[] = { 0, batteryAlertMillis, fanAlertMillis };
+const int* alertMillis[] = { 0, batteryAlertMillis, fanAlertMillis }; // Indexed by enum Alert.
 
 /********************************************************************
  * LED
@@ -226,6 +228,7 @@ void Main::updateBatteryTimers()
 {
     bool isChargingNow = isCharging();
     if (isChargingNow && !prevIsCharging) {
+        // we have just started charging
         chargeStartTimeMillis = hw.millis();
         serialPrintf("Start charging at %ld", chargeStartTimeMillis);
     }
@@ -243,10 +246,13 @@ void Main::updateBatteryCoulombs()
 {
     // assert (we are not sleeping)
 
+    updateBatteryVoltage();
+    updateBatteryTimers();
+
     // Calculate the time since our last sample, and grab a new sample. Do these back-to-back to help keep timing accurate.
-    unsigned long now = hw.micros();
+    unsigned long nowMicros = hw.micros();
     long chargeFlow = hw.analogRead(CHARGE_CURRENT_PIN); // 0 to 1023, < 512 means charging, the units are arbitrary "charge flow units"
-   
+
     if (0) { // TEMP
         chargeFlow = 512;                                  // 20 volts = no charge flow
         if (batteryVolts < 13) chargeFlow = 409600;        // 12 volts = fast discharge
@@ -258,8 +264,8 @@ void Main::updateBatteryCoulombs()
     }
 
     // Calculate the time interval between this sample and the previous.
-    unsigned long deltaMicros = now - lastBatteryCoulombsUpdateMicros;
-    lastBatteryCoulombsUpdateMicros = now;
+    unsigned long deltaMicros = nowMicros - lastBatteryCoulombsUpdateMicros;
+    lastBatteryCoulombsUpdateMicros = nowMicros;
 
     // Use the Charge Flow reading to calculate the current that is flowing into or out of the battery.
     // We assume that the flow rate was constant between the current and previous samples.
@@ -288,12 +294,12 @@ void Main::updateBatteryCoulombs()
 
 void Main::updateBatteryVoltage()
 {
-    unsigned long now = hw.millis();
-    if (now - lastBatteryVoltsUpdateMillis > BATTERY_VOLTAGE_UPDATE_INTERVAL_MILLIS && numBatteryVoltageSamples > 0) {
+    unsigned long nowMillis = hw.millis();
+    if (nowMillis - lastBatteryVoltsUpdateMillis > BATTERY_VOLTAGE_UPDATE_INTERVAL_MILLIS && numBatteryVoltageSamples > 0) {
         batteryVolts = batteryVoltageAccumulator / numBatteryVoltageSamples * VOLTS_PER_VOLTAGE_UNIT;
         batteryVoltageAccumulator = 0;
         numBatteryVoltageSamples = 0;
-        lastBatteryVoltsUpdateMillis = now;
+        lastBatteryVoltsUpdateMillis = nowMillis;
     } else {
         batteryVoltageAccumulator += hw.analogRead(BATTERY_VOLTAGE_PIN);
         numBatteryVoltageSamples += 1;
@@ -522,6 +528,20 @@ Main::Main() :
     instance = this;
 }
 
+// Initialize the data used to determine battery voltage and charge
+void Main::initBatteryData()
+{
+    lastBatteryCoulombsUpdateMicros = hw.micros();
+    lastBatteryVoltsUpdateMillis = hw.millis();
+    batteryVoltageAccumulator = 0;
+    numBatteryVoltageSamples = 0;
+    batteryVolts = 20.0;
+    chargeStartTimeMillis = hw.millis();
+    lastVoltageChangeTimeMillis = hw.millis();
+    prevIsCharging = false;
+    prevBatteryVolts = 0;
+}
+
 void Main::setup()
 {
     // Make sure watchdog is off. Remember what kind of reset just happened.
@@ -569,27 +589,15 @@ void Main::setup()
     wdt_enable(WDTO_8S);
 
     hw.setPowerButtonInterruptCallback(staticPowerButtonInterruptCallback);
-
-    // Initialize the data used to determine battery voltage and charge
-    lastBatteryCoulombsUpdateMicros = hw.micros();
-    lastBatteryVoltsUpdateMillis = hw.micros();
-    batteryVoltageAccumulator = 0;
-    numBatteryVoltageSamples = 0;
-    batteryVolts = 20.0;
+   
     batteryCoulombs = BATTERY_CAPACITY_COULOMBS / 2.0; // TODO use the voltage to estimate this
-
-    chargeStartTimeMillis = 0;
-    lastVoltageChangeTimeMillis = 0;
-    prevIsCharging = false;
-    prevBatteryVolts = 0;
+    initBatteryData();
 
     enterState(initialPowerState);
 }
 
 void Main::doAllUpdates()
 {
-    updateBatteryVoltage();
-    updateBatteryTimers();
     updateBatteryCoulombs();
     if (currentAlert != alertFanRPM) {
         updateFanLEDs();
@@ -646,10 +654,10 @@ void Main::loop()
             break;
 
         case stateOff:
-            // Update nothing
             nap();
-            lastBatteryCoulombsUpdateMicros = hw.micros();
-            lastBatteryVoltsUpdateMillis = hw.micros();
+
+            // We only come out of nap() when we are no longer in stateOff.
+            initBatteryData();
             break;
 
         case stateOnCharging:
@@ -662,8 +670,6 @@ void Main::loop()
 
         case stateOffCharging:
             // Only do updates related to battery
-            updateBatteryVoltage();
-            updateBatteryTimers();
             updateBatteryCoulombs();
             updateBatteryLEDs();
             buttonPower.update();

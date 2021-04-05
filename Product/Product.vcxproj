@@ -110,7 +110,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Debugging.h" />
     <ClInclude Include="Hardware.h" />
     <ClInclude Include="PressDetector.h" />
     <ClInclude Include="Main.h" />
@@ -119,7 +118,6 @@
     <ClInclude Include="__vm\.Product.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Debugging.cpp" />
     <ClCompile Include="Hardware.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MySerial.cpp" />
