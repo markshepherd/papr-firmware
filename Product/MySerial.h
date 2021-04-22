@@ -6,4 +6,8 @@
 void serialInit();
 void serialPrintf(const char* __fmt, ...);
 char* renderDouble(double number, char* pBuffer = 0);
+#else
+void serialInit();
+void serialPrintf(const char* __fmt, ...);
+char* renderDouble(double number, char* pBuffer = 0);
 #endif

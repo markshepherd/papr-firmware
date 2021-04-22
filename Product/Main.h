@@ -12,7 +12,7 @@
 #include "UnitTest/MyHardware.h"
 #else
 #include "PressDetector.h"
-#include <FanController.h>
+#include "FC.h"
 #include "Hardware.h"
 #endif
 
@@ -27,7 +27,7 @@ enum FanSpeed { fanLow, fanMedium, fanHigh };
 // We can be either on or off, and either charging or not charging.
 enum PAPRState { stateOff, stateOn, stateOffCharging, stateOnCharging };
 
-class Main {
+class Main : public InterruptCallback {
 public:
     Main();
 
@@ -37,12 +37,13 @@ public:
 
     // The Hardware object gives access to all the microcontroller hardware such as pins and timers. Please always use this object,
     // and never access any hardware or Arduino APIs directly. This gives us the option of using a fake hardware object for unit testing.
-    Hardware hw;
+    #define hw Hardware::instance
 
     // The PressDetector object polls a pin, and calls a callback when the pin value changes. There is one PressDetector object per button.
     PressDetector buttonFanUp;
     PressDetector buttonFanDown;
-    PressDetector buttonPower;
+    PressDetector buttonPowerOff;
+    PressDetector buttonPowerOn;
 
     // The object that controls and monitors the fan.
     FanController fanController;
@@ -58,9 +59,9 @@ private:
     void setFanSpeed(FanSpeed speed);
     void checkForFanAlert();
     void checkForBatteryAlert();
-    void onPowerPress();
+    void onPowerOffPress();
+    void onPowerOnPress();
     void enterState(PAPRState newState);
-    void powerButtonInterruptCallback();
     void nap();
     void doAllUpdates();
     void updateBatteryCoulombs();
@@ -77,8 +78,8 @@ private:
     static void staticToggleAlert();
     static void staticFanDownPress(const int);
     static void staticFanUpPress(const int);
-    static void staticPowerPress(const int);
-    static void staticPowerButtonInterruptCallback();
+    static void staticPowerOffPress(const int);
+    static void staticPowerOnPress(const int);
 
     /********************************************************************
      * Fan data
@@ -124,4 +125,5 @@ public:
     // Glue
     unsigned long millis() { return hw.millis(); }
     static Main* instance;
+    virtual void callback();
 };

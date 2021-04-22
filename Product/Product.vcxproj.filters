@@ -36,6 +36,9 @@
     <ClInclude Include="PressDetector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FC.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Hardware.cpp">
@@ -45,6 +48,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="MySerial.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

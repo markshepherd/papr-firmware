@@ -16,7 +16,7 @@
 
 void serialPrintf(const char* __fmt, ...) {
 	va_list args;
-	char buffer[200];
+	char buffer[300];
 	va_start(args, __fmt);
 	vsnprintf(buffer, sizeof(buffer), __fmt, args);
 	va_end(args);
@@ -42,7 +42,12 @@ char* renderDouble(double number, char* pBuffer)
 	double fraction = number - (double)integerPart;
 	char buff[10];
 	sprintf(buff, "%d", (int)(fraction * 1000.0) + 1000);
-	sprintf(pBuffer, "%s %ld.%s", (negative ? "-" : ""), integerPart, &buff[1]);
+	sprintf(pBuffer, "%s%ld.%s", (negative ? "-" : ""), integerPart, &buff[1]);
 	return pBuffer;
 }
+#else
+#include "Arduino.h"
+void serialInit() { Serial.begin(57600); }
+void serialPrintf(const char* __fmt, ...) {}
+char* renderDouble(double number, char* pBuffer = 0) { return 0; }
 #endif

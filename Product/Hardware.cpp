@@ -4,6 +4,10 @@
 #include "Hardware.h"
 #include <avr/interrupt.h>
 
+Hardware::Hardware() :powerOnButtonInterruptCallback(0), fanRPMInterruptCallback(0) { }
+
+Hardware Hardware::instance;
+
 /********************************************************************
  * PAPR-specific functions
  ********************************************************************/
@@ -75,21 +79,62 @@ void Hardware::reset()
     onReset();
 }
 
-void (*powerButtonInterruptCallback) ();
+void Hardware::handleInterrupt() {
+    if (powerOnButtonInterruptCallback) {
+        unsigned int newPowerOnButtonState = digitalRead(POWER_ON_PIN);
+        if (newPowerOnButtonState != powerOnButtonState) {
+            powerOnButtonState = newPowerOnButtonState;
+            powerOnButtonInterruptCallback->callback();
+        }
+    }
 
-// note: this conflicts with SoftwareSerial. it's not a problem because we no longer use SoftwareSerial
-ISR(PCINT2_vect)
-{
-    powerButtonInterruptCallback();
+    if (fanRPMInterruptCallback) {
+        unsigned int newFanRPMState = digitalRead(FAN_RPM_PIN);
+        if (newFanRPMState != fanRPMState) {
+            fanRPMState = newFanRPMState;
+            fanRPMInterruptCallback->callback();
+        }
+    }
 }
 
-void Hardware::setPowerButtonInterruptCallback(void (*callback) ())
+ISR(PCINT2_vect)
 {
-    powerButtonInterruptCallback = callback;
- 
-    // Enable Pin Change Interrupt for the Power On button.
-    PCMSK2 |= 0x80; // set PCINT23 = 1 to enable PCINT on pin PD7
-    PCICR |= 0x04; // set PCIE2 = 1 to enable PC interrupts
+    Hardware::instance.handleInterrupt();
+}
+
+void Hardware::updateInterruptHandling() {
+    powerOnButtonState = digitalRead(POWER_ON_PIN);
+    fanRPMState = digitalRead(FAN_RPM_PIN);
+
+    if (powerOnButtonInterruptCallback) {
+        PCMSK2 |=   1 << PCINT23;  // set PCINT23 = 1 to enable PCINT on pin PD7
+    } else {
+        PCMSK2 &= ~(1 << PCINT23); // set PCINT23 = 0 to disable PCINT on pin PD7
+    }
+
+    if (fanRPMInterruptCallback) {
+        PCMSK2 |=   1 << PCINT21;  // set PCINT21 = 1 to enable PCINT on pin PD5
+    } else {
+        PCMSK2 &= ~(1 << PCINT21); // set PCINT21 = 0 to disable PCINT on pin PD5
+    }
+
+    if (powerOnButtonInterruptCallback || fanRPMInterruptCallback) {
+        PCICR |=   1 << PCIE2;     // set PCIE2 = 1 to enable PC interrupts
+    } else {
+        PCICR &= ~(1 << PCIE2);    // set PCIE2 = 0 to disable PC interrupts
+    }
+}
+
+void Hardware::setPowerOnButtonInterruptCallback(InterruptCallback* callback)
+{
+    powerOnButtonInterruptCallback = callback;
+    updateInterruptHandling();
+}
+
+void Hardware::setFanRPMInterruptCallback(InterruptCallback* callback)
+{
+    fanRPMInterruptCallback = callback;
+    updateInterruptHandling();
 }
 
 void Hardware::setPowerMode(PowerMode mode)

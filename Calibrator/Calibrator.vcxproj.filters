@@ -30,12 +30,18 @@
     <ClInclude Include="..\Product\Hardware.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\Product\FC.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Product\MySerial.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\Product\Hardware.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Product\FC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
