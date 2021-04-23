@@ -21,8 +21,10 @@ void Hardware::configurePins()
     pinMode(POWER_ON_PIN, INPUT_PULLUP);
     pinMode(FAN_PWM_PIN, OUTPUT);
     pinMode(FAN_RPM_PIN, INPUT);
+    pinMode(FAN_ENABLE_PIN, OUTPUT);
     pinMode(BATTERY_VOLTAGE_PIN, INPUT);
     pinMode(CHARGE_CURRENT_PIN, INPUT);
+    pinMode(REFERENCE_VOLTAGE_PIN, INPUT);
     pinMode(BOARD_POWER_PIN, OUTPUT);
     pinMode(BUZZER_PIN, OUTPUT);
     pinMode(BATTERY_LED_LOW_PIN, OUTPUT);
@@ -39,7 +41,8 @@ void Hardware::configurePins()
 // Set all devices to an initial state
 void Hardware::initializeDevices()
 {
-    // Fan to lowest speed
+    // Fan on at lowest speed
+    digitalWrite(FAN_ENABLE_PIN, FAN_ON);
     analogWrite(FAN_PWM_PIN, 0);
 
     // All LEDs off
@@ -103,6 +106,9 @@ ISR(PCINT2_vect)
 }
 
 void Hardware::updateInterruptHandling() {
+    // If anyone is interested in Power On button presses or Fan RPM signals, 
+    // then here is where we set up handling for the appropriate Pin Change interrupts.
+    // By default, PCMSK2 and PCICR are both 0, so we won't receive any Pin Change interrupts.
     powerOnButtonState = digitalRead(POWER_ON_PIN);
     fanRPMState = digitalRead(FAN_RPM_PIN);
 
@@ -159,4 +165,9 @@ void Hardware::setPowerMode(PowerMode mode)
 
         // We are now running at low power, low speed.
     }
+}
+
+unsigned long getMillis()
+{
+    return Hardware::instance.millis();
 }

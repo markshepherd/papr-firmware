@@ -111,6 +111,7 @@
   <ItemGroup>
     <ClInclude Include="FC.h" />
     <ClInclude Include="Hardware.h" />
+    <ClInclude Include="Battery.h" />
     <ClInclude Include="PressDetector.h" />
     <ClInclude Include="Main.h" />
     <ClInclude Include="MySerial.h" />
@@ -118,6 +119,7 @@
     <ClInclude Include="__vm\.Product.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Battery.cpp" />
     <ClCompile Include="FC.cpp" />
     <ClCompile Include="Hardware.cpp" />
     <ClCompile Include="Main.cpp" />

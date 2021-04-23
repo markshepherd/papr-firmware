@@ -9,6 +9,11 @@
 #include "Main.h"
 #include <LowPower.h>
 #include "MySerial.h"
+#include "Hardware.h"
+
+ // The Hardware object gives access to all the microcontroller hardware such as pins and timers. Please always use this object,
+ // and never access any hardware or Arduino APIs directly. This gives us the option of using a fake hardware object for unit testing.
+#define hw Hardware::instance
 
 /********************************************************************
  * Fan constants
@@ -63,15 +68,6 @@ const byte LEDpins[] = {
     FAN_HIGH_LED_PIN
 };
 const int numLEDs = sizeof(LEDpins) / sizeof(byte);
-
-/********************************************************************
- * Battery and power constants
- ********************************************************************/
-
-const double CHARGE_AMPS_WHEN_FULL = 0.2;
-const int BATTERY_VOLTAGE_UPDATE_INTERVAL_MILLIS = 500;
-const double BATTERY_VOLTS_CHANGED_THRESHOLD = 0.1; // in volts
-const unsigned long CHARGER_WINDDOWN_TIME_MILLIS = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 /********************************************************************
  * Alert constants
@@ -200,110 +196,22 @@ void Main::checkForFanAlert() {
  * Battery
  ********************************************************************/
 
-bool Main::isCharging()
-{
-    return hw.analogRead(CHARGE_CURRENT_PIN) < (512 - 10); // TODO what's the right fudge factor?
-}
-
-void Main::updateBatteryVoltage()
-{
-    unsigned long nowMillis = hw.millis();
-    if (nowMillis - lastBatteryVoltsUpdateMillis > BATTERY_VOLTAGE_UPDATE_INTERVAL_MILLIS && numBatteryVoltageSamples > 0) {
-        batteryVolts = batteryVoltageAccumulator / numBatteryVoltageSamples * VOLTS_PER_VOLTAGE_UNIT;
-        batteryVoltageAccumulator = 0;
-        numBatteryVoltageSamples = 0;
-        lastBatteryVoltsUpdateMillis = nowMillis;
-    } else {
-        batteryVoltageAccumulator += hw.analogRead(BATTERY_VOLTAGE_PIN);
-        numBatteryVoltageSamples += 1;
-    }
-}
-
-void Main::updateBatteryTimers()
-{
-    bool isChargingNow = isCharging();
-    if (isChargingNow && !prevIsCharging) {
-        // we have just started charging
-        chargeStartTimeMillis = hw.millis();
-        serialPrintf("Start charging at %ld", chargeStartTimeMillis);
-    }
-    prevIsCharging = isChargingNow;
-
-    if (abs(batteryVolts - prevBatteryVolts) >= BATTERY_VOLTS_CHANGED_THRESHOLD) {
-        // voltage has changed since last time we checked
-        lastVoltageChangeTimeMillis = hw.millis();
-        prevBatteryVolts = batteryVolts;
-        serialPrintf("Voltage changed at %ld", lastVoltageChangeTimeMillis);
-    }
-}
-
-void Main::updateBatteryCoulombs()
-{
-    // assert (we are not sleeping)
-
-    updateBatteryVoltage();
-    updateBatteryTimers();
-
-    // Calculate the time since our last sample, and grab a new sample. Do these back-to-back to help keep timing accurate.
-    unsigned long nowMicros = hw.micros();
-    long chargeFlow = hw.analogRead(CHARGE_CURRENT_PIN);
-
-    // if (0) { // TEMP
-    //     chargeFlow = 512;                                  // 20 volts = no charge flow
-    //     if (batteryVolts < 13) chargeFlow = 409600;        // 12 volts = fast discharge
-    //     else if (batteryVolts < 16) chargeFlow = 1023;     // 15 volts = slow discharge
-    //     else if (batteryVolts > 25) chargeFlow = -409600;  // 26 volts = fast charge
-    //     else if (batteryVolts > 22) chargeFlow = 500;      // 23 volts = very slow charge
-    //     //chargeFlow = 500; // TEMP a slight charging flow, should trigger battery full
-    //     //serialPrintf("chargeFlow %ld", chargeFlow);
-    // }
-
-    // Calculate the time interval between this sample and the previous.
-    unsigned long deltaMicros = nowMicros - lastBatteryCoulombsUpdateMicros;
-    lastBatteryCoulombsUpdateMicros = nowMicros;
-
-    // Use the Charge Flow reading to calculate the current that is flowing into or out of the battery.
-    // We assume that the flow rate was constant between the current and previous samples.
-    chargeFlow -= 512; // shift the range to -512(charging) to +511(discharging)
-    double chargeFlowAmps = ((double)-chargeFlow) * AMPS_PER_CHARGE_FLOW_UNIT; // convert to amps, and flip so that > 0 means charging
-    double deltaSeconds = ((double)deltaMicros) / 1000000.0;
-    double deltaCoulombs = chargeFlowAmps * deltaSeconds;
-
-    // update our counter of the battery charge. Don't let the number get out of range.
-    batteryCoulombs = batteryCoulombs + deltaCoulombs;
-    batteryCoulombs = constrain(batteryCoulombs, 0, BATTERY_CAPACITY_COULOMBS);
-
-    // if the battery has reached the maximum charge, we can safely set the battery coulomb counter
-    // to 100% of the battery capacity. We know we've reached the maximum charge when:
-    unsigned long nowMillis = hw.millis();
-    if ((batteryCoulombs != BATTERY_CAPACITY_COULOMBS) &&
-        (chargeFlowAmps >= 0) &&                                                    // we're charging right now, AND
-        (nowMillis - chargeStartTimeMillis > CHARGER_WINDDOWN_TIME_MILLIS) &&       // we've been charging for a few minutes. AND
-        (nowMillis - lastVoltageChangeTimeMillis > CHARGER_WINDDOWN_TIME_MILLIS) && // the battery voltage hasn't changed for a few minutes, AND
-        chargeFlowAmps < CHARGE_AMPS_WHEN_FULL)                                     // the current flow rate is below a threshold
-    {
-        serialPrintf("Charge full. batteryCoulombs was %s. ChargeFlow %ld milliAmps.", renderDouble(batteryCoulombs), long(chargeFlowAmps * 1000.0));
-        batteryCoulombs = BATTERY_CAPACITY_COULOMBS;
-    }
-}
-
-
-// Call this to update the battery level LEDs.
+ // Call this to update the battery level LEDs.
 void Main::updateBatteryLEDs() {
-    int percentFull = (int)(batteryCoulombs / BATTERY_CAPACITY_COULOMBS * 100.0);
+    int percentFull = (int)(battery.getCoulombs() / BATTERY_CAPACITY_COULOMBS * 100.0);
 
     // Turn on/off the battery LEDs as required
-    hw.digitalWrite(BATTERY_LED_LOW_PIN,   (percentFull < 40)                        ? LED_ON : LED_OFF); // red
-    hw.digitalWrite(BATTERY_LED_MED_PIN,  ((percentFull > 15) && (percentFull < 95)) ? LED_ON : LED_OFF); // yellow
-    hw.digitalWrite(BATTERY_LED_HIGH_PIN,  (percentFull > 70)                        ? LED_ON : LED_OFF); // green
+    hw.digitalWrite(BATTERY_LED_LOW_PIN, (percentFull < 40) ? LED_ON : LED_OFF); // red
+    hw.digitalWrite(BATTERY_LED_MED_PIN, ((percentFull > 15) && (percentFull < 95)) ? LED_ON : LED_OFF); // yellow
+    hw.digitalWrite(BATTERY_LED_HIGH_PIN, (percentFull > 70) ? LED_ON : LED_OFF); // green
 
     // Turn on/off the charging indicator LED as required
-    hw.digitalWrite(CHARGING_LED_PIN, isCharging() ? LED_ON : LED_OFF); // orange
+    hw.digitalWrite(CHARGING_LED_PIN, battery.isCharging() ? LED_ON : LED_OFF); // orange
 }
 
 void Main::checkForBatteryAlert()
 {
-    int percentFull = (int)(batteryCoulombs / BATTERY_CAPACITY_COULOMBS * 100.0);
+    int percentFull = (int)(battery.getCoulombs() / BATTERY_CAPACITY_COULOMBS * 100.0);
 
     if (percentFull < 8) {
         enterAlertState(alertBatteryLow);
@@ -322,6 +230,7 @@ void Main::enterState(PAPRState newState)
     switch (newState) {
         case stateOn:
         case stateOnCharging:
+            digitalWrite(FAN_ENABLE_PIN, FAN_ON);
             setFanSpeed(currentFanSpeed);
             analogWrite(BUZZER_PIN, BUZZER_OFF);
             if (currentAlert != alertFanRPM) {
@@ -333,16 +242,11 @@ void Main::enterState(PAPRState newState)
             break;
 
         case stateOff:
-            currentFanSpeed = DEFAULT_FAN_SPEED;
-            cancelAlert();
-            allLEDsOff();
-            break;
-
         case stateOffCharging:
+            digitalWrite(FAN_ENABLE_PIN, FAN_OFF);
             currentFanSpeed = DEFAULT_FAN_SPEED;
             cancelAlert();
             allLEDsOff();
-            updateBatteryLEDs();
             break;
     }
 }
@@ -370,7 +274,7 @@ void Main::nap()
         unsigned long startMicros = hw.micros();
         while (hw.micros() - startMicros < (6000 / 8)) {} // divide by 8 because we are currently running at 1/8 normal speed.
         // ... read the charging sensor
-        bool charging = isCharging();
+        bool charging = battery.isCharging();
         // ... set the PCB back to low power
         hw.digitalWrite(BOARD_POWER_PIN, LOW);
 
@@ -530,20 +434,6 @@ Main::Main() :
     instance = this;
 }
 
-// Initialize the data used to determine battery voltage and charge
-void Main::initBatteryData()
-{
-    lastBatteryCoulombsUpdateMicros = hw.micros();
-    lastBatteryVoltsUpdateMillis = hw.millis();
-    batteryVoltageAccumulator = 0;
-    numBatteryVoltageSamples = 0;
-    batteryVolts = 20.0;
-    chargeStartTimeMillis = hw.millis();
-    lastVoltageChangeTimeMillis = hw.millis();
-    prevIsCharging = false;
-    prevBatteryVolts = 0;
-}
-
 void Main::setup()
 {
     // Make sure watchdog is off. Remember what kind of reset just happened.
@@ -594,9 +484,7 @@ void Main::setup()
 
     hw.setPowerOnButtonInterruptCallback(this);
    
-    batteryCoulombs = BATTERY_CAPACITY_COULOMBS / 2.0; // TODO use the voltage to estimate this
-    initBatteryData();
-    if (isCharging()) {
+    if (battery.isCharging()) {
         initialPowerState = (PAPRState)((int)initialPowerState + 2);
     }
     enterState(initialPowerState);
@@ -604,7 +492,7 @@ void Main::setup()
 
 void Main::doAllUpdates()
 {
-    updateBatteryCoulombs();
+    battery.update();
     if (currentAlert != alertFanRPM) {
         updateFanLEDs();
     }
@@ -665,7 +553,7 @@ void Main::loop()
         case stateOn:
             // Update everything
             doAllUpdates();
-            if (isCharging()) {
+            if (battery.isCharging()) {
                 enterState(stateOnCharging); 
             }
             break;
@@ -673,23 +561,23 @@ void Main::loop()
         case stateOff:
             nap();
             // We only come out of nap() when we are no longer in stateOff.
-            initBatteryData();
+            battery.wakeUp();
             break;
 
         case stateOnCharging:
             // Update everything
             doAllUpdates();
-            if (!isCharging()) {
+            if (!battery.isCharging()) {
                 enterState(stateOn);
             }
             break;
 
         case stateOffCharging:
             // Only do updates related to battery
-            updateBatteryCoulombs();
+            battery.update();
             updateBatteryLEDs();
             buttonPowerOn.update();
-            if (!isCharging()) {
+            if (!battery.isCharging()) {
                 enterState(stateOff);
             }
             break;
@@ -697,8 +585,3 @@ void Main::loop()
 }
 
 Main* Main::instance;
-
-unsigned long getMillis()
-{
-    return Main::instance->millis();
-}
