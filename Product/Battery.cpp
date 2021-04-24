@@ -30,9 +30,55 @@ Battery::Battery()
     coulombs = BATTERY_CAPACITY_COULOMBS / 2.0; // TODO use the voltage to estimate this
 }
 
+/*
+if ~PWR_EN then V > 10 ? yes : no
+
+if power on (fan consumes at least 100 mA)
+    current > W ? yes : no		high enough that we are certain it's charging (-50 mA?)
+
+if power off (no fan, total power consumption is only a few mA)
+    if current > X then yes		high enough that we are certain it's charging (50 mA?)
+    if current < Y then no		low enough that we are certain it's not charging (-50 mA?) (should never happen)
+    set ~PWR_EN, V > 10 ? yes : no		
+*/
 bool Battery::isCharging()
 {
-    return hw.analogRead(CHARGE_CURRENT_PIN) < (512 - 10); // TODO what's the right fudge factor?
+    if (hw.getPowerMode() == lowPowerMode) {
+        // When the board is in low power mode, the battery is disconnected from the charger,
+        // and the voltage pin gives the charger's voltage. If the charger is connected, this voltage
+        // will definitely be greater than 10, and if not connected it will definitely be less than 10.
+        return hw.readVoltage() > 10.0;
+    }
+
+    double chargeFlowAmps = hw.readCurrent();
+
+    if (systemActive) {
+        // We know that the system is consuming at least 100 mA. If the consumption seems to be way lower, we deduce that the charger must be connected. 
+        return chargeFlowAmps > -0.050;
+    } else {
+        // The system is inactive, and therefore total consumption right now is very low, probably within the margin of
+        // error of the current sensor.
+
+        if (chargeFlowAmps > 0.050) {
+            // we are definitely charging.
+            return true;
+        }
+
+        if (chargeFlowAmps < -0.050) {
+            // we are definitely discharging
+            return false;
+        }
+
+        // At this point we don't really know if the charger is connected or not. 
+        // The only way to tell is to temporarily switch the board to low power mode.
+        // (it is safe to go into low power mode because (a) the system is inactive and
+        // therefore we won't be disrupting anything important, and (b) the current is
+        // very low so we won't be disruptive to coulomb counting.
+        hw.setPowerMode(lowPowerMode);
+        bool result = hw.readVoltage() > 10.0;
+        hw.setPowerMode(fullPowerMode);
+        return result;
+    }
 }
 
 void Battery::updateBatteryVoltage()
@@ -70,7 +116,7 @@ void Battery::updateBatteryTimers()
 
 void Battery::update()
 {
-    if (!hw.fullSpeed()) {
+    if (hw.getPowerMode() != fullPowerMode) {
         // this should never happen!
         return;
     }
@@ -78,18 +124,15 @@ void Battery::update()
     updateBatteryVoltage();
     updateBatteryTimers();
 
-    // Calculate the time since our last sample, and grab a new sample. Do these back-to-back to help keep timing accurate.
+    // TaKe a sample of the battery current.
     unsigned long nowMicros = hw.micros();
-    long currentReading = hw.analogRead(CHARGE_CURRENT_PIN);
-    long referenceReading = hw.analogRead(REFERENCE_VOLTAGE_PIN);
+    double chargeFlowAmps = hw.readCurrent();
 
-    // Calculate the time interval between this sample and the previous.
+    // Calculate the time interval between this sample and the previous, then use that to calculate how much charge
+    // has flowed into/outof the battery since the last sample. We will assume that the current remained constant
+    // between the current and previous samples.
     unsigned long deltaMicros = nowMicros - lastCoulombsUpdateMicros;
     lastCoulombsUpdateMicros = nowMicros;
-
-    // Use the Charge Flow reading to calculate the current that is flowing into or out of the battery.
-    // We assume that the flow rate was constant between the current and previous samples.
-    double chargeFlowAmps = (currentReading - referenceReading) * AMPS_PER_CHARGE_FLOW_UNIT; // TODO maybe flip negative
     double deltaSeconds = ((double)deltaMicros) / 1000000.0;
     double deltaCoulombs = chargeFlowAmps * deltaSeconds;
 

@@ -75,6 +75,16 @@ void Hardware::setClockPrescaler(int prescalerSelect)
     interrupts();
 }
 
+double Hardware::readVoltage() {
+    return analogRead(BATTERY_VOLTAGE_PIN) * VOLTS_PER_VOLTAGE_UNIT;
+}
+
+double Hardware::readCurrent() {
+    long currentReading = analogRead(CHARGE_CURRENT_PIN);
+    long referenceReading = analogRead(REFERENCE_VOLTAGE_PIN);
+    return ((double)(currentReading - referenceReading)) * AMPS_PER_CHARGE_FLOW_UNIT; // TODO maybe flip negative??
+}
+
 void Hardware::reset()
 {
     // "onReset" points to the RESET interrupt handler at address 0.
@@ -165,6 +175,18 @@ void Hardware::setPowerMode(PowerMode mode)
 
         // We are now running at low power, low speed.
     }
+
+    powerMode = mode;
+}
+
+void Hardware::setup() {
+    // If the power has just come on, then the PCB is in Low Power mode, and the MCU
+    // is running at 1 MHz (because the CKDIV8 fuse bit is programmed). Switch to full speed.
+    setPowerMode(fullPowerMode);
+
+    // Initialize the hardware
+    configurePins();
+    initializeDevices();
 }
 
 unsigned long getMillis()

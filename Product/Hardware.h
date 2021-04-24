@@ -136,14 +136,14 @@ public:
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     void reset();
     int watchdogStartup(void);
-    void setClockPrescaler(int prescalerSelect);
-    bool fullSpeed() { CLKPR == 0; }
     void setPowerOnButtonInterruptCallback(InterruptCallback*);
     void setFanRPMInterruptCallback(InterruptCallback*);
-    void configurePins();
-    void initializeDevices();
+    void setup();
     void setPowerMode(PowerMode mode);
+    PowerMode getPowerMode() { return powerMode; }
     void handleInterrupt();
+    double readVoltage(); // returns volts in the range 0 to 30
+    double readCurrent(); // returns amperes in the range -6 to +6, positive when charging, negative when discharging
 
     // A note about the MCU clock: in low power mode, the MCU only receives 2.5 volts power,
     // which means we have to run it at a reduced clock speed. We use 1 MHz instead of the normal 8 MHz.
@@ -159,6 +159,10 @@ private:
     unsigned int fanRPMState;
     InterruptCallback* powerOnButtonInterruptCallback;
     InterruptCallback* fanRPMInterruptCallback;
+    PowerMode powerMode;
     void updateInterruptHandling();
     Hardware();
+    void configurePins();
+    void initializeDevices();
+    void setClockPrescaler(int prescalerSelect);
 };

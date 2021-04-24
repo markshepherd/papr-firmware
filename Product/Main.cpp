@@ -230,6 +230,7 @@ void Main::enterState(PAPRState newState)
     switch (newState) {
         case stateOn:
         case stateOnCharging:
+            battery.notifySystemActive(true);
             digitalWrite(FAN_ENABLE_PIN, FAN_ON);
             setFanSpeed(currentFanSpeed);
             analogWrite(BUZZER_PIN, BUZZER_OFF);
@@ -243,6 +244,8 @@ void Main::enterState(PAPRState newState)
 
         case stateOff:
         case stateOffCharging:
+            battery.notifySystemActive(false);
+            pinMode(BUZZER_PIN, INPUT); // tri-state the output pin, so the buzzer receives no signal and consumes no power.
             digitalWrite(FAN_ENABLE_PIN, FAN_OFF);
             currentFanSpeed = DEFAULT_FAN_SPEED;
             cancelAlert();
@@ -251,10 +254,12 @@ void Main::enterState(PAPRState newState)
     }
 }
 
-// Be careful inside this function, it's the only place where we mess around with power and speed
-// settings. When this function returns, the board MUST be at full power, the MCU clock
-// MUST be at full speed, and the watchdog timer MUST be enabled. Be careful, this code
-// contains loops that could go infinite if you mess things up.
+// Be careful inside this function, it's the only place where we mess around with
+// power, speed, watchdog, and sleeping. If you break this code it will mess up
+// a lot of things! 
+// 
+// When this function returns, the board MUST be in full power mode,
+// and the watchdog timer MUST be enabled. 
 void Main::nap()
 {
     hw.wdt_disable();
@@ -267,18 +272,7 @@ void Main::nap()
         hw.delayMicroseconds(100);
         hw.digitalWrite(FAN_HIGH_LED_PIN, LED_OFF);
 
-        // Read the charging indicator...
-        // ... temporarily set the PCB to full power mode.
-        hw.digitalWrite(BOARD_POWER_PIN, HIGH);
-        // ... wait for 6 milliseconds to allow the board to reach full power
-        unsigned long startMicros = hw.micros();
-        while (hw.micros() - startMicros < (6000 / 8)) {} // divide by 8 because we are currently running at 1/8 normal speed.
-        // ... read the charging sensor
-        bool charging = battery.isCharging();
-        // ... set the PCB back to low power
-        hw.digitalWrite(BOARD_POWER_PIN, LOW);
-
-        if (charging) {
+        if (battery.isCharging()) {
             hw.setPowerMode(fullPowerMode);
             enterState(stateOffCharging);
             hw.wdt_enable(WDTO_8S);
@@ -436,16 +430,9 @@ Main::Main() :
 
 void Main::setup()
 {
-    // Make sure watchdog is off. Remember what kind of reset just happened.
+    // Make sure watchdog is off. Remember what kind of reset just happened. Setup the hardware.
     int resetFlags = hw.watchdogStartup();
-
-    // If the power has just come on, then the PCB is in Low Power mode, and the MCU
-    // is running at 1 MHz (because the CKDIV8 fuse bit is programmed). Switch to full speed.
-    hw.setPowerMode(fullPowerMode);
-
-    // Initialize the hardware
-    hw.configurePins();
-    hw.initializeDevices();
+    hw.setup();
 
     #ifdef SERIAL_ENABLED
     delay(1000);
@@ -576,10 +563,10 @@ void Main::loop()
             // Only do updates related to battery
             battery.update();
             updateBatteryLEDs();
-            buttonPowerOn.update();
             if (!battery.isCharging()) {
                 enterState(stateOff);
             }
+            buttonPowerOn.update();
             break;
     }
 }

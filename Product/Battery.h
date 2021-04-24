@@ -6,6 +6,7 @@ public:
     void update();
     void wakeUp();
     double getCoulombs() { return coulombs; }
+    void notifySystemActive(bool active) { systemActive = active; }
     Battery();
 
 private:
@@ -22,4 +23,5 @@ private:
     unsigned long lastChangeTimeMillis; // millisecond timestamp of when the battery voltage last changed
     bool prevIsCharging;
     double prevVolts;
+    bool systemActive;
 };
