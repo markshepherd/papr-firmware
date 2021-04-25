@@ -1,10 +1,10 @@
-#include "FC.h"
+#include "FanController.h"
 #include "PressDetector.h"
 #include "MySerial.h"
 #include "Hardware.h"
 #include <limits.h>
 
-// This app exercises all pins except POWER_OFF_PIN, POWER_ON_PIN.
+// This app exercises all the pins defined in Hardware.h
 
 FanController fanController(FAN_RPM_PIN, 1000, FAN_PWM_PIN);
 

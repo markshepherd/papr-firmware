@@ -108,14 +108,14 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Product\FC.h" />
+    <ClInclude Include="..\Product\FanController.h" />
     <ClInclude Include="..\Product\Hardware.h" />
     <ClInclude Include="..\Product\MySerial.h" />
     <ClInclude Include="..\Product\PressDetector.h" />
     <ClInclude Include="__vm\.Calibrator.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Product\FC.cpp" />
+    <ClCompile Include="..\Product\FanController.cpp" />
     <ClCompile Include="..\Product\Hardware.cpp" />
     <ClCompile Include="..\Product\MySerial.cpp" />
   </ItemGroup>

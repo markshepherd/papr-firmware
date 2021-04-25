@@ -30,7 +30,7 @@
     <ClInclude Include="..\Product\Hardware.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\Product\FC.h">
+    <ClInclude Include="..\Product\FanController.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -41,7 +41,7 @@
     <ClCompile Include="..\Product\Hardware.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\Product\FC.cpp">
+    <ClCompile Include="..\Product\FanController.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

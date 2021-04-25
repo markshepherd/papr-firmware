@@ -1,5 +1,5 @@
 #include "Arduino.h"
-#include "FC.h"
+#include "FanController.h"
 #include "MySerial.h"
 #include "Hardware.h"
 

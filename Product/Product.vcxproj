@@ -109,7 +109,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="FC.h" />
+    <ClInclude Include="FanController.h" />
     <ClInclude Include="Hardware.h" />
     <ClInclude Include="Battery.h" />
     <ClInclude Include="PressDetector.h" />
@@ -120,7 +120,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Battery.cpp" />
-    <ClCompile Include="FC.cpp" />
+    <ClCompile Include="FanController.cpp" />
     <ClCompile Include="Hardware.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MySerial.cpp" />

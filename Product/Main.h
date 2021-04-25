@@ -12,7 +12,7 @@
 #include "UnitTest/MyFanController.h"
 #else
 #include "PressDetector.h"
-#include "FC.h"
+#include "FanController.h"
 #endif
 
 class PAPRMainTest;
