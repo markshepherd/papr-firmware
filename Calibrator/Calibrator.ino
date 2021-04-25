@@ -6,9 +6,11 @@
 
 // This app exercises all the pins defined in Hardware.h
 
-FanController fanController(FAN_RPM_PIN, 1000, FAN_PWM_PIN);
-
-int currentDutyCycle;
+///////////////////////////////////////////////////////////////////////
+//
+// Sampler
+//
+///////////////////////////////////////////////////////////////////////
 
 class Sampler {
 public:
@@ -39,6 +41,15 @@ public:
     }
 };
 
+///////////////////////////////////////////////////////////////////////
+//
+// Data
+//
+///////////////////////////////////////////////////////////////////////
+
+FanController fanController(FAN_RPM_PIN, 1000, FAN_PWM_PIN);
+int currentDutyCycle;
+
 unsigned long samplePeriodEndMillis;
 bool skipReport;
 Sampler voltage;
@@ -62,6 +73,18 @@ PressDetector offButton(POWER_OFF_PIN, 100, onOffButton);
 PressDetector onButton(POWER_ON_PIN, 100, onOnButton);
 PressDetector downButton(FAN_DOWN_PIN, 100, onDownButton);
 PressDetector upButton(FAN_UP_PIN, 100, onUpButton);
+
+int increment = 10;
+bool skipUpRelease = false;
+bool skipDownRelease = false;
+
+
+///////////////////////////////////////////////////////////////////////
+//
+// Code
+//
+///////////////////////////////////////////////////////////////////////
+
 
 void allLEDs(int state)
 {
@@ -148,10 +171,6 @@ void setFanDutyCycle(int dutyCycle)
     serialPrintf("Duty cycle %d\r\n\r\n", dutyCycle);
 }
 
-int increment = 10;
-bool skipUpRelease = false;
-bool skipDownRelease = false;
-
 void onUpButton()
 {
     setFanDutyCycle(currentDutyCycle + increment);
@@ -197,6 +216,7 @@ public:
 };
 
 PowerOnButtonInterruptCallback powerOnButtonInterruptCallback;
+
 //unsigned long loopCount;
 //unsigned long startMillis;
 
@@ -226,7 +246,6 @@ void loop()
         endSamplePeriod();
         beginSamplePeriod();
     }
-
     takeSample();
 
     //loopCount += 1;
