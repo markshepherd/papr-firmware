@@ -36,6 +36,9 @@
     <ClInclude Include="..\Product\Recorder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\Product\Battery.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Product\MySerial.cpp">
@@ -48,6 +51,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\Product\Recorder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Product\Battery.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

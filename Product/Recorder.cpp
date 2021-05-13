@@ -57,7 +57,7 @@ void beginSamplePeriod()
     computedCurrent.reset();
 }
 
-void updateRecorder(unsigned int fanSpeed, int currentDutyCycle, bool isCharging, double coulombs)
+void updateRecorder(unsigned int fanRPM, int currentDutyCycle, bool isCharging, double coulombs)
 {
     if (millis() >= samplePeriodEndMillis) {
         if (!skipReport) {
@@ -84,7 +84,7 @@ void updateRecorder(unsigned int fanSpeed, int currentDutyCycle, bool isCharging
 
     unsigned int batteryLevel = analogRead(BATTERY_VOLTAGE_PIN);
 
-    rpm.sample(fanSpeed);
+    rpm.sample(fanRPM);
     rawRPM.sample(digitalRead(FAN_RPM_PIN));
     voltage.sample(batteryLevel);
     referenceVoltage.sample(analogRead(REFERENCE_VOLTAGE_PIN));

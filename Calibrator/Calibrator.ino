@@ -4,6 +4,7 @@
 #include "Hardware.h"
 #include <limits.h>
 #include "Recorder.h"
+#include "Battery.h"
 
 // This app exercises all the pins defined in Hardware.h
 
@@ -13,6 +14,7 @@
 //
 ///////////////////////////////////////////////////////////////////////
 
+Battery battery;
 FanController fanController(FAN_RPM_PIN, 1000, FAN_PWM_PIN);
 int currentDutyCycle;
 bool toneOn = false;
@@ -134,6 +136,7 @@ void setup()
     Hardware::instance.setPowerOnButtonInterruptCallback(&powerOnButtonInterruptCallback);
     //loopCount = 0;
     //startMillis = millis();
+    battery.notifySystemActive(true);
 }
 
 void loop()
@@ -142,8 +145,9 @@ void loop()
     onButton.update();
     downButton.update();
     upButton.update();
-    fanController.getSpeed();
-    updateRecorder();
+    fanController.getRPM();
+    battery.update();
+    updateRecorder(fanController.getRPM(), currentDutyCycle, battery.isCharging(), battery.getCoulombs());
 
     //loopCount += 1;
     //if (millis() - startMillis >= 10000) {
