@@ -9,7 +9,7 @@ class FanController : public InterruptCallback
 public:
 	FanController(byte sensorPin, unsigned int sensorThreshold, byte pwmPin = 0);
 	void begin();
-	unsigned int getSpeed();
+	unsigned int getRPM();
 	void setDutyCycle(byte dutyCycle);
 	byte getDutyCycle();
 	

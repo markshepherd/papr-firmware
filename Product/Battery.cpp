@@ -1,5 +1,6 @@
 #include "Battery.h"
 #include "Hardware.h"
+#include "MySerial.h"
 
 #define hw Hardware::instance
 
@@ -18,8 +19,8 @@ void Battery::wakeUp() {
     voltageAccumulator = 0;
     numVoltageSamples = 0;
     volts = 20.0;
-    chargeStartTimeMillis = hw.millis();
-    lastChangeTimeMillis = hw.millis();
+    chargeStartMillis = hw.millis();
+    lastVoltageChangeMillis = hw.millis();
     prevIsCharging = false;
     prevVolts = 0;
 }
@@ -101,16 +102,16 @@ void Battery::updateBatteryTimers()
     bool isChargingNow = isCharging();
     if (isChargingNow && !prevIsCharging) {
         // we have just started charging
-        chargeStartTimeMillis = hw.millis();
-        //serialPrintf("Start charging at %ld", chargeStartTimeMillis);
+        chargeStartMillis = hw.millis();
+        serialPrintf("Start charging at %ld", chargeStartMillis);
     }
     prevIsCharging = isChargingNow;
 
     if (abs(volts - prevVolts) >= BATTERY_VOLTS_CHANGED_THRESHOLD) {
         // voltage has changed since last time we checked
-        lastChangeTimeMillis = hw.millis();
+        lastVoltageChangeMillis = hw.millis();
         prevVolts = volts;
-        //serialPrintf("Voltage changed at %ld", lastVoltageChangeTimeMillis);
+        serialPrintf("Voltage changed at %ld", lastVoltageChangeMillis);
     }
 }
 
@@ -144,12 +145,12 @@ void Battery::update()
     // to 100% of the battery capacity. We know we've reached the maximum charge when:
     unsigned long nowMillis = hw.millis();
     if ((coulombs != BATTERY_CAPACITY_COULOMBS) &&
-        (chargeFlowAmps >= 0) &&                                                    // we're charging right now, AND
-        (nowMillis - chargeStartTimeMillis > CHARGER_WINDDOWN_TIME_MILLIS) &&       // we've been charging for a few minutes. AND
-        (nowMillis - lastChangeTimeMillis > CHARGER_WINDDOWN_TIME_MILLIS) && // the battery voltage hasn't changed for a few minutes, AND
-        chargeFlowAmps < CHARGE_AMPS_WHEN_FULL)                                     // the current flow rate is below a threshold
+        (chargeFlowAmps >= -0.010) &&                                           // we're charging right now, AND
+        (nowMillis - chargeStartMillis > CHARGER_WINDDOWN_TIME_MILLIS) &&       // we've been charging for a few minutes. AND
+        (nowMillis - lastVoltageChangeMillis > CHARGER_WINDDOWN_TIME_MILLIS) && // the battery voltage hasn't changed for a few minutes, AND
+        chargeFlowAmps < CHARGE_AMPS_WHEN_FULL)                                 // the current flow rate is below a threshold
     {
-        //serialPrintf("Charge full. batteryCoulombs was %s. ChargeFlow %ld milliAmps.", renderDouble(batteryCoulombs), long(chargeFlowAmps * 1000.0));
+        serialPrintf("Charge full. Coulombs was %s. ChargeFlow %ld milliAmps.", renderDouble(coulombs), long(chargeFlowAmps * 1000.0));
         coulombs = BATTERY_CAPACITY_COULOMBS;
     }
 }

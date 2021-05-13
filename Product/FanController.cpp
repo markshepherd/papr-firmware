@@ -19,7 +19,7 @@ void FanController::begin()
 	_attachInterrupt();
 }
 
-unsigned int FanController::getSpeed() {
+unsigned int FanController::getRPM() {
 	unsigned long elapsed = millis() - _lastMillis;
 	if (elapsed > _sensorThreshold)
 	{

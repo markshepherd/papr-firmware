@@ -112,12 +112,14 @@
     <ClInclude Include="..\Product\Hardware.h" />
     <ClInclude Include="..\Product\MySerial.h" />
     <ClInclude Include="..\Product\PressDetector.h" />
+    <ClInclude Include="..\Product\Recorder.h" />
     <ClInclude Include="__vm\.Calibrator.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Product\FanController.cpp" />
     <ClCompile Include="..\Product\Hardware.cpp" />
     <ClCompile Include="..\Product\MySerial.cpp" />
+    <ClCompile Include="..\Product\Recorder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="board.txt" />

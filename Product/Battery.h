@@ -19,8 +19,8 @@ private:
     unsigned long lastVoltsUpdateMillis;
     unsigned long voltageAccumulator;
     unsigned long numVoltageSamples;
-    unsigned long chargeStartTimeMillis; // millisecond timestamp of when the battery charger started up
-    unsigned long lastChangeTimeMillis; // millisecond timestamp of when the battery voltage last changed
+    unsigned long chargeStartMillis; // millisecond timestamp of when the battery charger started up
+    unsigned long lastVoltageChangeMillis; // millisecond timestamp of when the battery voltage last changed
     bool prevIsCharging;
     double prevVolts;
     bool systemActive;

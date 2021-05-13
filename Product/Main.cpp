@@ -10,6 +10,7 @@
 #include <LowPower.h>
 #include "MySerial.h"
 #include "Hardware.h"
+#include "Recorder.h"
 
  // The Hardware object gives access to all the microcontroller hardware such as pins and timers. Please always use this object,
  // and never access any hardware or Arduino APIs directly. This gives us the option of using a fake hardware object for unit testing.
@@ -139,6 +140,7 @@ void Main::onToggleAlert()
 // way out is for the user to turn the power off.
 void Main::enterAlertState(Alert alert)
 {
+    serialPrintf("Begin %d Alert", alert);
     currentAlert = alert;
     currentAlertLEDs = alertLEDs[alert];
     currentAlertMillis = alertMillis[alert];
@@ -169,15 +171,17 @@ void Main::setFanSpeed(FanSpeed speed)
     fanController.setDutyCycle(fanDutyCycles[speed]);
     currentFanSpeed = speed;
     updateFanLEDs();
+    serialPrintf("Set Fan Speed %d", speed);
 
     // disable fan RPM monitor for a few seconds, until the new fan speed stabilizes
     dontCheckFanSpeedUntil = hw.millis() + FAN_STABILIZE_MILLIS;
+    resetRecorder();
 }
 
 // Call this periodically to check that the fan RPM is within the expected range for the current FanSpeed.
 void Main::checkForFanAlert() {
-    const unsigned int fanRPM = fanController.getSpeed(); 
-    // Note: we call getSpeed() even if we're not going to use the result, because getSpeed() works better if you call it often.
+    const unsigned int fanRPM = fanController.getRPM(); 
+    // Note: we call getRPM() even if we're not going to use the result, because getRPM() works better if you call it often.
 
     // If fan RPM checking is temporarily disabled, then do nothing.
     if (dontCheckFanSpeedUntil) {
@@ -437,8 +441,7 @@ void Main::setup()
     #ifdef SERIAL_ENABLED
     delay(1000);
     serialInit();
-    serialPrintf("PAPR Rev 3, MCUSR = %x, off %d, on %d, down %d, up %d", resetFlags,
-        hw.digitalRead(POWER_OFF_PIN), hw.digitalRead(POWER_ON_PIN), hw.digitalRead(FAN_DOWN_PIN), hw.digitalRead(FAN_UP_PIN));
+    serialPrintf("PAPR Rev 3, MCUSR = %x", resetFlags);
     #endif
 
     // Decide what power state we should be in.
@@ -494,6 +497,7 @@ void Main::doAllUpdates()
     buttonFanDown.update();
     buttonPowerOff.update();
     alertTimer.update();
+    updateRecorder(fanController.getRPM(), fanDutyCycles[currentFanSpeed], battery.isCharging(), battery.getCoulombs());
 }
 
 // TEMP
@@ -567,6 +571,7 @@ void Main::loop()
                 enterState(stateOff);
             }
             buttonPowerOn.update();
+            updateRecorder(fanController.getRPM(), fanDutyCycles[currentFanSpeed], battery.isCharging(), battery.getCoulombs());
             break;
     }
 }

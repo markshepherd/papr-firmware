@@ -59,7 +59,7 @@ const int FAN_ENABLE_PIN = 14;        // PB6   output  Digital: LOW = fan xxx, H
 const int FAN_OFF = HIGH;             // ?? TODO
 const int FAN_ON = LOW;               // ?? TODO
                                       
-// Power                              
+// Power
 const int BATTERY_VOLTAGE_PIN = A7;   // ADC7  input   10-bit ADC: convert to volts using VOLTS_PER_VOLTAGE_UNIT
 const int CHARGE_CURRENT_PIN = A6;    // ADC6  input   10-bit ADC
 const int REFERENCE_VOLTAGE_PIN = A1; // PC1   input   10-bit ADC

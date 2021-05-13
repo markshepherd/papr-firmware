@@ -1,4 +1,4 @@
 #pragma once
 
-void updateRecorder();
+void updateRecorder(unsigned int fanSpeed, int currentDutyCycle, bool isCharging, double coulombs);
 void resetRecorder();
