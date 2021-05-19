@@ -2,9 +2,9 @@
 #include "PressDetector.h"
 #include "MySerial.h"
 #include "Hardware.h"
-#include <limits.h>
 #include "Recorder.h"
 #include "Battery.h"
+#include <limits.h>
 
 // This app exercises all the pins defined in Hardware.h
 
@@ -66,10 +66,10 @@ void setFanDutyCycle(int dutyCycle)
     if (dutyCycle > 100) dutyCycle = 100;
     currentDutyCycle = dutyCycle;
     if (currentDutyCycle >= 0) {
-        digitalWrite(FAN_ENABLE_PIN, FAN_ON);
+        Hardware::instance.enableFan(true);
         fanController.setDutyCycle(dutyCycle);
     } else {
-        digitalWrite(FAN_ENABLE_PIN, FAN_OFF);
+        Hardware::instance.enableFan(false);
     }
     resetRecorder();
     serialPrintf("Duty cycle %d\r\n\r\n", dutyCycle);
@@ -104,7 +104,7 @@ void onOnButton() {
 void initializeSerial() {
     Serial.begin(57600);
     delay(10);
-    Serial.println("\n\nPAPR Calibrator for Rev 3.0A board");
+    Serial.println("\n\nPAPR Calibrator for Rev 3.1A board");
     Serial.println("Off button: toggle sound");
     Serial.println("On button: toggle increment");
     Serial.println("Down button: decrease fan speed");
@@ -137,7 +137,17 @@ void setup()
     //loopCount = 0;
     //startMillis = millis();
     battery.notifySystemActive(true);
+
+    // test the long long datatype
+    //#define LLONG_MAX 9223372036854775807LL
+    //long long a = LLONG_MAX;
+    //long long b = LONG_MAX;
+    //long long c = LONG_MAX / 100;
+    //serialPrintf("long long test: %s %s %s %s", renderLongLong(a), renderLongLong(0), renderLongLong(a / 1000000LL), renderLongLong(a / a));
+    //serialPrintf("long long test: %s %s %s %s", renderLongLong(-a), renderLongLong(b * 1000000LL), renderLongLong(b * c), renderLongLong(b * c / 1000));
 }
+
+//unsigned long lastExtraInfoMillis = 0;
 
 void loop()
 {
@@ -146,8 +156,18 @@ void loop()
     downButton.update();
     upButton.update();
     fanController.getRPM();
+    //unsigned long nowMilliSecs = millis();
+    //bool extraInfo = false;
+    //if (nowMilliSecs - lastExtraInfoMillis > 2000) {
+    //    lastExtraInfoMillis = nowMilliSecs;
+    //    extraInfo = true;
+    //}
     battery.update();
-    updateRecorder(fanController.getRPM(), currentDutyCycle, battery.isCharging(), battery.getCoulombs());
+    updateRecorder(fanController.getRPM(), currentDutyCycle, battery.isCharging(), battery.getPicoCoulombs());
+
+    //if (!battery.isCharging()) {
+    //    serialPrintf("------- not charging"); // happens quite often when there is no battery connected
+    //}
 
     //loopCount += 1;
     //if (millis() - startMillis >= 10000) {

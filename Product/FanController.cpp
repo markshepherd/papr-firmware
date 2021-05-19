@@ -23,12 +23,12 @@ unsigned int FanController::getRPM() {
 	unsigned long elapsed = millis() - _lastMillis;
 	if (elapsed > _sensorThreshold)
 	{
-		noInterrupts(); // _detachInterrupt();
-		double correctionFactor = 1000.0 / elapsed;
+		noInterrupts();
+		float correctionFactor = 1000.0 / elapsed;
 		_lastReading = correctionFactor * _halfRevs / 2 * 60;
 		_halfRevs = 0;
 		_lastMillis = millis();
-		interrupts(); // _attachInterrupt();
+		interrupts();
 	}
 	return _lastReading;
 }

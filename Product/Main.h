@@ -7,6 +7,7 @@
 #pragma once
 #include "Timer.h"
 #include "Battery.h"
+#include "PeriodicCallback.h"
 #ifdef UNITTEST
 #include "UnitTest/MyButtonDebounce.h"
 #include "UnitTest/MyFanController.h"
@@ -50,7 +51,8 @@ private:
     void setLEDs(const int* pinList, int onOff);
     void flashAllLEDs(int millis, int count);
     void onToggleAlert();
-    void enterAlertState(Alert alert);
+    void onChargeReminder();
+    void raiseAlert(Alert alert);
     void setFanSpeed(FanSpeed speed);
     void checkForFanAlert();
     void checkForBatteryAlert();
@@ -66,6 +68,7 @@ private:
 
     // Event handler glue code
     static void staticToggleAlert();
+    static void staticChargeReminder();
     static void staticFanDownPress(const int);
     static void staticFanUpPress(const int);
     static void staticPowerOffPress(const int);
@@ -85,7 +88,7 @@ private:
      * Alert data
      ********************************************************************/
 
-     // Data used when we are in the alert state.
+     // Data used when an alert is active.
     Alert currentAlert;
     const int* currentAlertLEDs = nullptr;
     const int* currentAlertMillis = nullptr;
@@ -99,6 +102,7 @@ private:
      ********************************************************************/
     PAPRState paprState;
     Battery battery;
+    PeriodicCallback chargeReminder;
 
 public:
     // Glue

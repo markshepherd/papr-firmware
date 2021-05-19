@@ -21,7 +21,7 @@ void Hardware::configurePins()
     pinMode(POWER_ON_PIN, INPUT_PULLUP);
     pinMode(FAN_PWM_PIN, OUTPUT);
     pinMode(FAN_RPM_PIN, INPUT);
-    pinMode(FAN_ENABLE_PIN, OUTPUT);
+    DDRB |= (1 << DDB6); // pinMode(FAN_ENABLE_PIN, OUTPUT); // we can't use pinMode because it doesn't support pin PB6
     pinMode(BATTERY_VOLTAGE_PIN, INPUT);
     pinMode(CHARGE_CURRENT_PIN, INPUT);
     pinMode(REFERENCE_VOLTAGE_PIN, INPUT);
@@ -42,7 +42,7 @@ void Hardware::configurePins()
 void Hardware::initializeDevices()
 {
     // Fan on at lowest speed
-    digitalWrite(FAN_ENABLE_PIN, FAN_ON);
+    enableFan(true);
     analogWrite(FAN_PWM_PIN, 0);
 
     // All LEDs off
@@ -75,14 +75,23 @@ void Hardware::setClockPrescaler(int prescalerSelect)
     interrupts();
 }
 
-double Hardware::readVoltage() {
-    return analogRead(BATTERY_VOLTAGE_PIN) * VOLTS_PER_VOLTAGE_UNIT;
+long long Hardware::readMicroVolts() {
+    return ((long long)analogRead(BATTERY_VOLTAGE_PIN) * NANO_VOLTS_PER_VOLTAGE_UNIT) / 1000;
 }
 
-double Hardware::readCurrent() {
+long long Hardware::readMicroAmps() {
     long currentReading = analogRead(CHARGE_CURRENT_PIN);
     long referenceReading = analogRead(REFERENCE_VOLTAGE_PIN);
-    return ((double)(currentReading - referenceReading)) * AMPS_PER_CHARGE_FLOW_UNIT; // TODO maybe flip negative??
+    return ((long long)(currentReading - referenceReading)) * MICRO_AMPS_PER_CHARGE_FLOW_UNIT; // TODO maybe flip negative??
+}
+
+void Hardware::enableFan(bool enable) {
+    // We have to access the port register directly, because digitalWrite doesn't support pin PB6.
+    if (enable) {
+        PORTB |= (1 << PB6);         // digitalWrite(FAN_ENABLE_PIN, FAN_ON);
+    } else {
+        PORTB = PORTB & ~(1 << PB6); // digitalWrite(FAN_ENABLE_PIN, FAN_OFF);
+    }
 }
 
 void Hardware::reset()

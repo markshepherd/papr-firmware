@@ -16,6 +16,8 @@
  // and never access any hardware or Arduino APIs directly. This gives us the option of using a fake hardware object for unit testing.
 #define hw Hardware::instance
 
+const int URGENT_BATTERY_PERCENT = 8;
+
 /********************************************************************
  * Fan constants
  ********************************************************************/
@@ -122,6 +124,9 @@ void Main::flashAllLEDs(int millis, int count)
     }
 }
 
+void Main::onChargeReminder() {
+}
+
 /********************************************************************
  * Alert
  ********************************************************************/
@@ -138,7 +143,7 @@ void Main::onToggleAlert()
 // Enter the "alert" state. In this state we pulse the lights and buzzer to 
 // alert the user to a problem. Once we are in this state, the only
 // way out is for the user to turn the power off.
-void Main::enterAlertState(Alert alert)
+void Main::raiseAlert(Alert alert)
 {
     serialPrintf("Begin %d Alert", alert);
     currentAlert = alert;
@@ -192,7 +197,7 @@ void Main::checkForFanAlert() {
     // If the RPM is too low or too high compared to the expected value, raise an alert.
     const unsigned int expectedRPM = expectedFanRPM[currentFanSpeed];
     if ((fanRPM < (LOWEST_FAN_OK_RPM * expectedRPM)) || (fanRPM > (HIGHEST_FAN_OK_RPM * expectedRPM))) {
-        enterAlertState(alertFanRPM);
+        raiseAlert(alertFanRPM);
     }
 }
 
@@ -200,25 +205,48 @@ void Main::checkForFanAlert() {
  * Battery
  ********************************************************************/
 
- // Call this to update the battery level LEDs.
+// Call this to update the battery level LEDs.
 void Main::updateBatteryLEDs() {
     int percentFull = (int)(battery.getCoulombs() / BATTERY_CAPACITY_COULOMBS * 100.0);
 
+    bool redLED = (percentFull < 40);
+    if (percentFull <= URGENT_BATTERY_PERCENT) {
+        bool ledToggle = (hw.millis() / 1000) & 1;
+        redLED = redLED && ledToggle;
+    }
+
     // Turn on/off the battery LEDs as required
-    hw.digitalWrite(BATTERY_LED_LOW_PIN, (percentFull < 40) ? LED_ON : LED_OFF); // red
+    hw.digitalWrite(BATTERY_LED_LOW_PIN, redLED ? LED_ON : LED_OFF); // red
     hw.digitalWrite(BATTERY_LED_MED_PIN, ((percentFull > 15) && (percentFull < 95)) ? LED_ON : LED_OFF); // yellow
     hw.digitalWrite(BATTERY_LED_HIGH_PIN, (percentFull > 70) ? LED_ON : LED_OFF); // green
 
     // Turn on/off the charging indicator LED as required
     hw.digitalWrite(CHARGING_LED_PIN, battery.isCharging() ? LED_ON : LED_OFF); // orange
+    
+    if (!battery.isCharging() && percentFull <= 15 && currentAlert != alertBatteryLow) {
+        if (!chargeReminder.isActive()) {
+            onChargeReminder();
+            chargeReminder.start();
+        }
+    } else {
+        if (chargeReminder.isActive()) {
+            chargeReminder.cancel();
+        }
+    }
 }
 
 void Main::checkForBatteryAlert()
 {
-    int percentFull = (int)(battery.getCoulombs() / BATTERY_CAPACITY_COULOMBS * 100.0);
+    if (battery.isCharging()) {
+        if (currentAlert == alertBatteryLow) {
+            cancelAlert();
+        }
+    } else {
+        int percentFull = (int)(battery.getCoulombs() / BATTERY_CAPACITY_COULOMBS * 100.0);
 
-    if (percentFull < 8) {
-        enterAlertState(alertBatteryLow);
+        if (percentFull < URGENT_BATTERY_PERCENT) {
+            raiseAlert(alertBatteryLow);
+        }
     }
 }
 
@@ -390,6 +418,11 @@ void Main::staticToggleAlert()
     instance->onToggleAlert();
 }
 
+void Main::staticChargeReminder()
+{
+    instance->onChargeReminder();
+}
+
 void Main::staticFanDownPress(const int)
 {
     serialPrintf("fan down press");
@@ -425,6 +458,7 @@ Main::Main() :
     buttonPowerOff(POWER_OFF_PIN, POWER_OFF_BUTTON_DEBOUNCE_MILLIS, staticPowerOffPress),
     buttonPowerOn(POWER_ON_PIN, BUTTON_DEBOUNCE_MILLIS, staticPowerOnPress),
     alertTimer(staticToggleAlert),
+    chargeReminder(10000, staticChargeReminder),
     fanController(FAN_RPM_PIN, FAN_SPEED_READING_INTERVAL, FAN_PWM_PIN),
     currentFanSpeed(fanLow),
     currentAlert(alertNone)
@@ -473,7 +507,7 @@ void Main::setup()
     wdt_enable(WDTO_8S);
 
     hw.setPowerOnButtonInterruptCallback(this);
-   
+
     if (battery.isCharging()) {
         initialPowerState = (PAPRState)((int)initialPowerState + 2);
     }
@@ -483,20 +517,21 @@ void Main::setup()
 void Main::doAllUpdates()
 {
     battery.update();
+    if (currentAlert == alertNone) {
+        checkForFanAlert();
+    }
     if (currentAlert != alertFanRPM) {
         updateFanLEDs();
     }
+    checkForBatteryAlert();
     if (currentAlert != alertBatteryLow) {
         updateBatteryLEDs();
-    }
-    if (currentAlert == alertNone) {
-        checkForFanAlert();
-        checkForBatteryAlert();
     }
     buttonFanUp.update();
     buttonFanDown.update();
     buttonPowerOff.update();
     alertTimer.update();
+    chargeReminder.update();
     updateRecorder(fanController.getRPM(), fanDutyCycles[currentFanSpeed], battery.isCharging(), battery.getCoulombs());
 }
 
