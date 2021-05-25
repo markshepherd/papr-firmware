@@ -130,9 +130,9 @@ void setup()
     initializeSerial();
     fanController.begin();
     setFanDutyCycle(-10);
-    flashLEDs(500, 3);
-    digitalWrite(FAN_LOW_LED_PIN, LED_ON);
-    digitalWrite(BATTERY_LED_MED_PIN, LED_ON);
+    flashLEDs(200, 3);
+    digitalWrite(FAN_HIGH_LED_PIN, LED_ON);
+    digitalWrite(BATTERY_LED_LOW_PIN, LED_ON);
     Hardware::instance.setPowerOnButtonInterruptCallback(&powerOnButtonInterruptCallback);
     //loopCount = 0;
     //startMillis = millis();
@@ -149,8 +149,17 @@ void setup()
 
 //unsigned long lastExtraInfoMillis = 0;
 
+//unsigned long lastHeartBeatToggleMilliSecs = 0;
+//bool heartBeatToggle = false;
+
 void loop()
 {
+    //unsigned long nowMilliSecs = millis();
+    //if (nowMilliSecs - lastHeartBeatToggleMilliSecs > 2000) {
+    //    lastHeartBeatToggleMilliSecs = nowMilliSecs;
+    //    heartBeatToggle = !heartBeatToggle;
+    //    digitalWrite(CHARGING_LED_PIN, heartBeatToggle ? LED_ON : LED_OFF);
+    //}
     offButton.update();
     onButton.update();
     downButton.update();

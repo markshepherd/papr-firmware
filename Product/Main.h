@@ -52,6 +52,7 @@ private:
     void flashAllLEDs(int millis, int count);
     void onToggleAlert();
     void onChargeReminder();
+    void onBeepTimer();
     void raiseAlert(Alert alert);
     void setFanSpeed(FanSpeed speed);
     void checkForFanAlert();
@@ -65,10 +66,12 @@ private:
     void updateBatteryLEDs();
     void cancelAlert();
     bool doPowerOffWarning();
+    int getBatteryPercentFull();
 
     // Event handler glue code
     static void staticToggleAlert();
     static void staticChargeReminder();
+    static void staticBeepTimer();
     static void staticFanDownPress(const int);
     static void staticFanUpPress(const int);
     static void staticPowerOffPress(const int);
@@ -82,7 +85,8 @@ private:
     FanSpeed currentFanSpeed;
 
     // After we change the fan speed, we stop checking the RPMs for a few seconds, to let the speed stabilize.
-    unsigned long dontCheckFanSpeedUntil;
+    unsigned long lastFanSpeedChangeMilliSeconds;
+    bool fanSpeedRecentlyChanged;
 
     /********************************************************************
      * Alert data
@@ -97,16 +101,18 @@ private:
     // The timer that pulses the lights and buzzer during an alert.
     Timer alertTimer;
 
+    // The timer that does the reminder beeps when the battery gets below 15%.
+    PeriodicCallback chargeReminder;
+    Timer beepTimer;
+
     /********************************************************************
      * Etc.
      ********************************************************************/
     PAPRState paprState;
     Battery battery;
-    PeriodicCallback chargeReminder;
 
 public:
     // Glue
-    //unsigned long millis()
     static Main* instance;
     virtual void callback();
 };

@@ -8,6 +8,8 @@
  * Battery and power constants
  ********************************************************************/
 
+const long long lowPassFilterN = 100LL;
+
 const int BATTERY_VOLTAGE_UPDATE_INTERVAL_MILLISECS = 500;
 const unsigned long CHARGER_WINDDOWN_TIME_MILLIS = 5 * 60 * 1000; // 5 minutes in milliseconds
 const long long CHARGE_MICRO_AMPS_WHEN_FULL = 200000; // 0.2 Amps
@@ -15,14 +17,11 @@ const long long BATTERY_MILLI_VOLTS_CHANGED_THRESHOLD = 100; // 0.1 volts
 
 void Battery::wakeUp() {
     lastCoulombsUpdateMicroSecs = hw.micros();
-    lastVoltsUpdateMilliSecs = hw.millis();
-    voltageUnitsAccumulator = 0;
-    numVoltageSamples = 0;
-    milliVolts = 20000;
+    microVolts = 20000000LL;
     chargeStartMilliSecs = hw.millis();
     lastVoltageChangeMilliSecs = hw.millis();
     prevIsCharging = false;
-    prevMilliVolts = 0;
+    prevMicroVolts = 0;
 }
 
 Battery::Battery()
@@ -48,7 +47,7 @@ bool Battery::isCharging()
         // When the board is in low power mode, the battery is disconnected from the charger,
         // and the voltage pin gives the charger's voltage. If the charger is connected, this voltage
         // will definitely be greater than 10 volts, and if not connected it will definitely be less than 10 volts.
-        return hw.readMicroVolts() > 10000000;
+        return hw.readMicroVolts() > 10000000; // we have to use readMicroVolts() instead of microVolts, because microVolts doesn't get updated when in low power mode
     }
 
     long long chargeFlowMicroAmps = hw.readMicroAmps();
@@ -82,19 +81,12 @@ bool Battery::isCharging()
     }
 }
 
+// Update "microVolts" which is just a low-pass filtered version of hw.readMicroVolts(). We do the filtering to smooth out random variations in the readings.
+// This is probably not necessary because the readings are very stable, and because the voltage is only used in updateBatteryTimers() which
+// already has a margin of slop.
 void Battery::updateBatteryVoltage()
 {
-    unsigned long nowMilliSecs = hw.millis();
-    if (nowMilliSecs - lastVoltsUpdateMilliSecs > BATTERY_VOLTAGE_UPDATE_INTERVAL_MILLISECS && numVoltageSamples > 0) {
-        milliVolts = voltageUnitsAccumulator * NANO_VOLTS_PER_VOLTAGE_UNIT / numVoltageSamples / 1000000;
-        voltageUnitsAccumulator = 0;
-        numVoltageSamples = 0;
-        lastVoltsUpdateMilliSecs = nowMilliSecs;
-    }
-    else {
-        voltageUnitsAccumulator += hw.analogRead(BATTERY_VOLTAGE_PIN);
-        numVoltageSamples += 1;
-    }
+    microVolts = ((microVolts * lowPassFilterN) + hw.readMicroVolts()) / (lowPassFilterN + 1);
 }
 
 void Battery::updateBatteryTimers()
@@ -103,14 +95,14 @@ void Battery::updateBatteryTimers()
     if (isChargingNow && !prevIsCharging) {
         // we have just started charging
         chargeStartMilliSecs = hw.millis();
-        serialPrintf("Start charging at %ld", chargeStartMilliSecs);
+        //serialPrintf("Start charging at %ld", chargeStartMilliSecs);
     }
     prevIsCharging = isChargingNow;
 
-    if (abs(milliVolts - prevMilliVolts) >= BATTERY_MILLI_VOLTS_CHANGED_THRESHOLD) {
+    if (abs(microVolts - prevMicroVolts) >= BATTERY_MILLI_VOLTS_CHANGED_THRESHOLD) {
         // voltage has changed since last time we checked
         lastVoltageChangeMilliSecs = hw.millis();
-        prevMilliVolts = milliVolts;
+        prevMicroVolts = microVolts;
         serialPrintf("Voltage changed at %ld", lastVoltageChangeMilliSecs);
     }
 }
@@ -125,9 +117,12 @@ void Battery::update()
     updateBatteryVoltage();
     updateBatteryTimers();
 
-    // TaKe a sample of the battery current.
+    // TaKe a sample of the current. Read the clock and the current as close as possible to the same moment.
     long long nowMicroSecs = hw.micros();
     long long chargeFlowMicroAmps = hw.readMicroAmps();
+
+    // Note: even though there is a lot of random variation in charge flow readings (maybe 5-10%), we don't bother smoothing out the
+    // data because the data will get smoothed as we accumulate picoCoulombs in many small increments.
 
     // Calculate the time interval between this sample and the previous, then use that to calculate how much charge
     // has flowed into/outof the battery since the last sample. We will assume that the current remained constant

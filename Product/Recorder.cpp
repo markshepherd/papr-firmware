@@ -34,7 +34,7 @@ private:
     long long accumulator;
 };
 
-unsigned long samplePeriodEndMillis;
+unsigned long samplePeriodBeginMillis;
 bool skipReport;
 Sampler voltage;
 Sampler rpm;
@@ -49,7 +49,7 @@ const float lowPassFilterN = 500.0;
 
 void beginSamplePeriod()
 {
-    samplePeriodEndMillis = millis() + 5000;
+    samplePeriodBeginMillis = Hardware::instance.millis();
     skipReport = false;
     voltage.reset();
     rpm.reset();
@@ -62,7 +62,7 @@ void beginSamplePeriod()
 
 void updateRecorder(unsigned int fanRPM, int currentDutyCycle, bool isCharging, long long picoCoulombs)
 {
-    if (millis() >= samplePeriodEndMillis) {
+    if (Hardware::instance.millis() - samplePeriodBeginMillis > 5000) {
         if (!skipReport) {
             long long batteryMilliVolts = voltage.average() * NANO_VOLTS_PER_VOLTAGE_UNIT / 1000000;
             int buzzerDutyCycle = (OCR1BH << 8) | OCR1BL;

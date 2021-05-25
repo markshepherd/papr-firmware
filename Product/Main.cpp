@@ -3,7 +3,9 @@
  *
  * The main program of the PAPR product firmware.
  * 
- * KEEP THE MAIN LOOP RUNNING AT ALL TIMES. DO NOT USE DELAY(). 
+ * KEEP THE MAIN LOOP RUNNING AT ALL TIMES. DO NOT USE DELAY().
+ * Be careful - this firmware keeps running even when the user does "Power Off". This code may need to run correctly for months at a time. Don't break this code!
+ * All code must work when millis() and micros() wrap around
  * 
  */
 #include "Main.h"
@@ -125,6 +127,12 @@ void Main::flashAllLEDs(int millis, int count)
 }
 
 void Main::onChargeReminder() {
+    hw.analogWrite(BUZZER_PIN, BUZZER_ON);
+    beepTimer.start(500);
+}
+
+void Main::onBeepTimer() {
+    hw.analogWrite(BUZZER_PIN, BUZZER_OFF);
 }
 
 /********************************************************************
@@ -179,7 +187,8 @@ void Main::setFanSpeed(FanSpeed speed)
     serialPrintf("Set Fan Speed %d", speed);
 
     // disable fan RPM monitor for a few seconds, until the new fan speed stabilizes
-    dontCheckFanSpeedUntil = hw.millis() + FAN_STABILIZE_MILLIS;
+    lastFanSpeedChangeMilliSeconds = hw.millis();
+    fanSpeedRecentlyChanged = true;
     resetRecorder();
 }
 
@@ -189,9 +198,11 @@ void Main::checkForFanAlert() {
     // Note: we call getRPM() even if we're not going to use the result, because getRPM() works better if you call it often.
 
     // If fan RPM checking is temporarily disabled, then do nothing.
-    if (dontCheckFanSpeedUntil) {
-        if (dontCheckFanSpeedUntil > hw.millis()) return;
-        dontCheckFanSpeedUntil = 0;
+    if (fanSpeedRecentlyChanged) {
+        if (hw.millis() - lastFanSpeedChangeMilliSeconds < FAN_STABILIZE_MILLIS) {
+            return;
+        }
+        fanSpeedRecentlyChanged = false;
     }
 
     // If the RPM is too low or too high compared to the expected value, raise an alert.
@@ -205,9 +216,13 @@ void Main::checkForFanAlert() {
  * Battery
  ********************************************************************/
 
+int Main::getBatteryPercentFull() {
+    return (int)(battery.getPicoCoulombs() / (BATTERY_CAPACITY_PICO_COULOMBS / 100LL));
+}
+
 // Call this to update the battery level LEDs.
 void Main::updateBatteryLEDs() {
-    int percentFull = (int)(battery.getCoulombs() / BATTERY_CAPACITY_COULOMBS * 100.0);
+    int percentFull = getBatteryPercentFull();
 
     bool redLED = (percentFull < 40);
     if (percentFull <= URGENT_BATTERY_PERCENT) {
@@ -229,9 +244,7 @@ void Main::updateBatteryLEDs() {
             chargeReminder.start();
         }
     } else {
-        if (chargeReminder.isActive()) {
-            chargeReminder.cancel();
-        }
+        chargeReminder.stop();
     }
 }
 
@@ -241,12 +254,9 @@ void Main::checkForBatteryAlert()
         if (currentAlert == alertBatteryLow) {
             cancelAlert();
         }
-    } else {
-        int percentFull = (int)(battery.getCoulombs() / BATTERY_CAPACITY_COULOMBS * 100.0);
-
-        if (percentFull < URGENT_BATTERY_PERCENT) {
-            raiseAlert(alertBatteryLow);
-        }
+    } else if (getBatteryPercentFull() < URGENT_BATTERY_PERCENT) {
+        chargeReminder.stop();
+        raiseAlert(alertBatteryLow);
     }
 }
 
@@ -263,7 +273,7 @@ void Main::enterState(PAPRState newState)
         case stateOn:
         case stateOnCharging:
             battery.notifySystemActive(true);
-            digitalWrite(FAN_ENABLE_PIN, FAN_ON);
+            hw.enableFan(true);
             setFanSpeed(currentFanSpeed);
             analogWrite(BUZZER_PIN, BUZZER_OFF);
             if (currentAlert != alertFanRPM) {
@@ -278,7 +288,7 @@ void Main::enterState(PAPRState newState)
         case stateOffCharging:
             battery.notifySystemActive(false);
             pinMode(BUZZER_PIN, INPUT); // tri-state the output pin, so the buzzer receives no signal and consumes no power.
-            digitalWrite(FAN_ENABLE_PIN, FAN_OFF);
+            hw.enableFan(false);
             currentFanSpeed = DEFAULT_FAN_SPEED;
             cancelAlert();
             allLEDsOff();
@@ -423,6 +433,11 @@ void Main::staticChargeReminder()
     instance->onChargeReminder();
 }
 
+void Main::staticBeepTimer()
+{
+    instance->onBeepTimer();
+}
+
 void Main::staticFanDownPress(const int)
 {
     serialPrintf("fan down press");
@@ -458,9 +473,11 @@ Main::Main() :
     buttonPowerOff(POWER_OFF_PIN, POWER_OFF_BUTTON_DEBOUNCE_MILLIS, staticPowerOffPress),
     buttonPowerOn(POWER_ON_PIN, BUTTON_DEBOUNCE_MILLIS, staticPowerOnPress),
     alertTimer(staticToggleAlert),
+    beepTimer(staticBeepTimer),
     chargeReminder(10000, staticChargeReminder),
     fanController(FAN_RPM_PIN, FAN_SPEED_READING_INTERVAL, FAN_PWM_PIN),
     currentFanSpeed(fanLow),
+    fanSpeedRecentlyChanged(false),
     currentAlert(alertNone)
 {
     instance = this;
@@ -532,7 +549,8 @@ void Main::doAllUpdates()
     buttonPowerOff.update();
     alertTimer.update();
     chargeReminder.update();
-    updateRecorder(fanController.getRPM(), fanDutyCycles[currentFanSpeed], battery.isCharging(), battery.getCoulombs());
+    beepTimer.update();
+    updateRecorder(fanController.getRPM(), fanDutyCycles[currentFanSpeed], battery.isCharging(), battery.getPicoCoulombs());
 }
 
 // TEMP
@@ -606,7 +624,7 @@ void Main::loop()
                 enterState(stateOff);
             }
             buttonPowerOn.update();
-            updateRecorder(fanController.getRPM(), fanDutyCycles[currentFanSpeed], battery.isCharging(), battery.getCoulombs());
+            updateRecorder(fanController.getRPM(), fanDutyCycles[currentFanSpeed], battery.isCharging(), battery.getPicoCoulombs());
             break;
     }
 }

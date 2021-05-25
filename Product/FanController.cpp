@@ -20,14 +20,14 @@ void FanController::begin()
 }
 
 unsigned int FanController::getRPM() {
-	unsigned long elapsed = millis() - _lastMillis;
+	unsigned long elapsed = Hardware::instance.millis() - _lastMillis;
 	if (elapsed > _sensorThreshold)
 	{
 		noInterrupts();
 		float correctionFactor = 1000.0 / elapsed;
 		_lastReading = correctionFactor * _halfRevs / 2 * 60;
 		_halfRevs = 0;
-		_lastMillis = millis();
+		_lastMillis = Hardware::instance.millis();
 		interrupts();
 	}
 	return _lastReading;

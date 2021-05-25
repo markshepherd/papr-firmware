@@ -45,6 +45,9 @@
     <ClInclude Include="Recorder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="PeriodicCallback.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Hardware.cpp">

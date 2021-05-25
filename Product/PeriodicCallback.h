@@ -15,14 +15,16 @@ public:
     }
 
     void update() {
-        unsigned long now = getMillis();
-        if (_active && ((now - _intervalStartMillis) > _intervalMillis)) {
-            _intervalStartMillis = now;
-            (*_callback)();
+        if (_active) {
+            unsigned long now = getMillis();
+            if ((now - _intervalStartMillis) > _intervalMillis) {
+                _intervalStartMillis = now;
+                (*_callback)();
+            }
         }
     }
 
-    void cancel() {
+    void stop() {
         _active = false;
     }
 

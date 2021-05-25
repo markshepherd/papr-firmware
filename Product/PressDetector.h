@@ -26,13 +26,13 @@ public:
         if (state == BUTTON_PUSHED) {
             if (_currentState == BUTTON_PUSHED) {
                 // The button is already pressed. See if the button has been pressed long enough.
-                if (!_callbackCalled && (millis() - _pressMillis > _requiredMillis)) {
+                if (!_callbackCalled && (Hardware::instance.millis() - _pressMillis > _requiredMillis)) {
                     _callback();
                     _callbackCalled = true;
                 }
             } else {
                 // The button has just been pushed. Record the start time of this press.
-                _pressMillis = millis();
+                _pressMillis = Hardware::instance.millis();
                 _callbackCalled = false;
             }
         }
