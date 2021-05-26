@@ -82,7 +82,7 @@ long long Hardware::readMicroVolts() {
 long long Hardware::readMicroAmps() {
     long currentReading = analogRead(CHARGE_CURRENT_PIN);
     long referenceReading = analogRead(REFERENCE_VOLTAGE_PIN);
-    return ((long long)(currentReading - referenceReading)) * MICRO_AMPS_PER_CHARGE_FLOW_UNIT; // TODO maybe flip negative??
+    return (((long long)(currentReading - referenceReading)) * NANO_AMPS_PER_CHARGE_FLOW_UNIT) / 1000LL; // TODO maybe flip negative??
 }
 
 void Hardware::enableFan(bool enable) {

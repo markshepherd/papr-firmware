@@ -93,9 +93,48 @@ const int SERIAL_TX_PIN = 1;          // PD1   output  Only on development machi
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // "long long" has 18-19 decimal digits of precision. Watch out for overflow!
-const long long MICRO_AMPS_PER_CHARGE_FLOW_UNIT = 6500LL;
-const long long NANO_VOLTS_PER_VOLTAGE_UNIT = 29325500LL;        // 0 to 1023 yields 0 to 30 volts
+const long long NANO_AMPS_PER_CHARGE_FLOW_UNIT = 6516781LL;
+const long long NANO_VOLTS_PER_VOLTAGE_UNIT = 29325513LL;             // 0 to 1023 corresponds to 0 to 30 volts
 const long long BATTERY_CAPACITY_PICO_COULOMBS = 25200000000000000LL; // 25,200 coulombs // TODO fudge factor? probably 0.8
+
+/*
+Here is a note from Brent Bolton about how AMPS_PER_CHARGE_FLOW_UNIT and VOLTS_PER_VOLTAGE_UNIT are determined:
+
+VOLTAGE:
+
+The SW_BATT voltage is externally divided by 6 before being sent to
+ADC7. So a range of 0 to 30 volts on SW_BATT will be scaled down to 0 to
+5 V at the pin.  Because of the precision of the selected divider
+resistors, the accuracy of this stage is +/- 2%.
+
+That will nominally be mapped to 0 to 1023 by the ADC, however that will
+actually vary by +/- 2% as that's the regulation accuracy of the 5V
+power supply used as the ADC reference voltage. So the conversion
+factor is correct in the nominal case and the expected accuracy is +/- 4%.
+
+CURRENT: 
+
+The current sense uses a 15 milliOhm sense resistor. The voltage across
+the sensor  (which is current x 0.015) is multiplied by 50 and added to
+the PC1 voltage for discharge currents or subtracted for charge
+currents. That works out to 750 millivolts of ADC6 - PC1 difference per
+amp or, equivalently, 1.333 milliamps per millivolt of difference. So
+the calculation is:
+
+Current_in_mA = ((ADC6 - PC1) * 5000 * 4 /(1023 * 3); // Signed integer calculation
+
+where the 5000 is millivolts full scale and the 4/3 is the millivolt to
+milliamp conversion factor. It follows that the maximum resolvable
+current is going to be +/- 3333 mA if PC1 is exactly centered at 2.5
+volts. If it's not centered, which it isn't, then the maximum is going
+to be truncated in one direction. The maximum charge current is around
+2700mA so make sure that can be resolved. If not, I can tweak the
+circuit so it is. Max discharge current is less than 1000mA, so that's
+no problem.
+
+The final equation therefore is
+Current_in_mA = (ADC6 - PC1) * 6.516780710329097
+*/
 
 // The MCU's fuse bytes should be set as follows
 //   low fuse byte 0x72

@@ -103,7 +103,7 @@ void Battery::updateBatteryTimers()
         // voltage has changed since last time we checked
         lastVoltageChangeMilliSecs = hw.millis();
         prevMicroVolts = microVolts;
-        serialPrintf("Voltage changed at %ld", lastVoltageChangeMilliSecs);
+        //serialPrintf("Voltage changed at %ld", lastVoltageChangeMilliSecs);
     }
 }
 
