@@ -12,6 +12,7 @@ public:
 private:
     void updateBatteryVoltage();
     void updateBatteryTimers();
+    bool tempIsCharging();
 
     long long picoCoulombs; // How much charge is in the battery right now.
     long long microVolts;   // The voltage right now.

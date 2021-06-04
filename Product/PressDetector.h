@@ -21,7 +21,7 @@ public:
 
     void update()
     {
-        int state = digitalRead(_pin);
+        int state = Hardware::instance.digitalRead(_pin);
 
         if (state == BUTTON_PUSHED) {
             if (_currentState == BUTTON_PUSHED) {

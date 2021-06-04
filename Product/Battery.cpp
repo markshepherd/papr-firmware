@@ -11,9 +11,9 @@
 const long long lowPassFilterN = 100LL;
 
 const int BATTERY_VOLTAGE_UPDATE_INTERVAL_MILLISECS = 500;
-const unsigned long CHARGER_WINDDOWN_TIME_MILLIS = 5 * 60 * 1000; // 5 minutes in milliseconds
-const long long CHARGE_MICRO_AMPS_WHEN_FULL = 200000; // 0.2 Amps
-const long long BATTERY_MILLI_VOLTS_CHANGED_THRESHOLD = 100; // 0.1 volts
+const unsigned long CHARGER_WINDDOWN_TIME_MILLIS = 1UL * 60UL * 1000UL; // 5 minutes in milliseconds /*TEMP*/
+const long long CHARGE_MICRO_AMPS_WHEN_FULL = 200000LL; // 0.2 Amps
+const long long BATTERY_MICRO_VOLTS_CHANGED_THRESHOLD = 100000LL; // 0.1 volts
 
 void Battery::wakeUp() {
     lastCoulombsUpdateMicroSecs = hw.micros();
@@ -41,7 +41,13 @@ if power off (no fan, total power consumption is only a few mA)
     if current < Y then no		low enough that we are certain it's not charging (-50 mA?) (should never happen)
     set ~PWR_EN, V > 10 ? yes : no		
 */
-bool Battery::isCharging()
+bool Battery::isCharging() { /* TEMP */ 
+    bool result = tempIsCharging();
+    hw.digitalWrite(CHARGING_LED_PIN, result ? LED_ON : LED_OFF);
+    return result;
+}
+
+bool Battery::tempIsCharging()/* TEMP */ 
 {
     if (hw.getPowerMode() == lowPowerMode) {
         // When the board is in low power mode, the battery is disconnected from the charger,
@@ -95,15 +101,15 @@ void Battery::updateBatteryTimers()
     if (isChargingNow && !prevIsCharging) {
         // we have just started charging
         chargeStartMilliSecs = hw.millis();
-        //serialPrintf("Start charging at %ld", chargeStartMilliSecs);
+        serialPrintf("Start charging at %ld", chargeStartMilliSecs);
     }
     prevIsCharging = isChargingNow;
 
-    if (abs(microVolts - prevMicroVolts) >= BATTERY_MILLI_VOLTS_CHANGED_THRESHOLD) {
+    if (abs(microVolts - prevMicroVolts) >= BATTERY_MICRO_VOLTS_CHANGED_THRESHOLD) {
         // voltage has changed since last time we checked
         lastVoltageChangeMilliSecs = hw.millis();
+        serialPrintf("Voltage changed from %s uV to %s uV at %ld", renderLongLong(prevMicroVolts), renderLongLong(microVolts), lastVoltageChangeMilliSecs);
         prevMicroVolts = microVolts;
-        //serialPrintf("Voltage changed at %ld", lastVoltageChangeMilliSecs);
     }
 }
 
@@ -143,10 +149,10 @@ void Battery::update()
     // to 100% of the battery capacity. We know we've reached the maximum charge when:
     unsigned long nowMillis = hw.millis();
     if ((picoCoulombs != BATTERY_CAPACITY_PICO_COULOMBS) &&
-        (chargeFlowMicroAmps >= -10000) &&                                           // we're charging right now, AND
-        (nowMillis - chargeStartMilliSecs > CHARGER_WINDDOWN_TIME_MILLIS) &&       // we've been charging for a few minutes. AND
-        (nowMillis - lastVoltageChangeMilliSecs > CHARGER_WINDDOWN_TIME_MILLIS) && // the battery voltage hasn't changed for a few minutes, AND
-        chargeFlowMicroAmps < CHARGE_MICRO_AMPS_WHEN_FULL)                                 // the current flow rate is below a threshold
+        (chargeFlowMicroAmps >= -10000LL) &&                                         // we're charging right now, AND
+        ((nowMillis - chargeStartMilliSecs) > CHARGER_WINDDOWN_TIME_MILLIS) &&       // we've been charging for a few minutes. AND
+        ((nowMillis - lastVoltageChangeMilliSecs) > CHARGER_WINDDOWN_TIME_MILLIS) && // the battery voltage hasn't changed for a few minutes, AND
+        (chargeFlowMicroAmps < CHARGE_MICRO_AMPS_WHEN_FULL))                         // the current flow rate is below a threshold
     {
         serialPrintf("Charge full. PicoCoulombs was %s. ChargeFlow %s microAmps.", renderLongLong(picoCoulombs), renderLongLong(chargeFlowMicroAmps));
         picoCoulombs = BATTERY_CAPACITY_PICO_COULOMBS;

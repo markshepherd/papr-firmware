@@ -6,6 +6,8 @@
 #include "Battery.h"
 #include <limits.h>
 
+#define hw Hardware::instance
+
 // This app exercises all the pins defined in Hardware.h
 
 ///////////////////////////////////////////////////////////////////////
@@ -41,22 +43,22 @@ bool skipDownRelease = false;
 
 void allLEDs(int state)
 {
-    digitalWrite(BATTERY_LED_LOW_PIN, state);
-    digitalWrite(BATTERY_LED_MED_PIN, state);
-    digitalWrite(BATTERY_LED_HIGH_PIN, state);
-    digitalWrite(CHARGING_LED_PIN, state);
-    digitalWrite(FAN_LOW_LED_PIN, state);
-    digitalWrite(FAN_MED_LED_PIN, state);
-    digitalWrite(FAN_HIGH_LED_PIN, state);
+    hw.digitalWrite(BATTERY_LED_LOW_PIN, state);
+    hw.digitalWrite(BATTERY_LED_MED_PIN, state);
+    hw.digitalWrite(BATTERY_LED_HIGH_PIN, state);
+    hw.digitalWrite(CHARGING_LED_PIN, state);
+    hw.digitalWrite(FAN_LOW_LED_PIN, state);
+    hw.digitalWrite(FAN_MED_LED_PIN, state);
+    hw.digitalWrite(FAN_HIGH_LED_PIN, state);
 }
 
 void flashLEDs(int interval, int count)
 {
     while (count-- > 0) {
         allLEDs(LED_ON);
-        delay(interval);
+        hw.delay(interval);
         allLEDs(LED_OFF);
-        delay(interval);
+        hw.delay(interval);
     }
 }
 
@@ -66,10 +68,12 @@ void setFanDutyCycle(int dutyCycle)
     if (dutyCycle > 100) dutyCycle = 100;
     currentDutyCycle = dutyCycle;
     if (currentDutyCycle >= 0) {
-        Hardware::instance.enableFan(true);
+        hw.digitalWrite(FAN_ENABLE_PIN, FAN_ON);
         fanController.setDutyCycle(dutyCycle);
+        battery.notifySystemActive(true);
     } else {
-        Hardware::instance.enableFan(false);
+        hw.digitalWrite(FAN_ENABLE_PIN, FAN_OFF);
+        battery.notifySystemActive(false);
     }
     resetRecorder();
     serialPrintf("Duty cycle %d\r\n\r\n", dutyCycle);
@@ -88,10 +92,10 @@ void onDownButton()
 void onOffButton() {
     toneOn = !toneOn;
     if (toneOn) {
-        analogWrite(BUZZER_PIN, 128);
+        hw.analogWrite(BUZZER_PIN, 128);
     }
     else {
-        analogWrite(BUZZER_PIN, 0);
+        hw.analogWrite(BUZZER_PIN, 0);
     }
     serialPrintf("Sound is now %s", toneOn ? "on" : "off");
 }
@@ -103,7 +107,7 @@ void onOnButton() {
 
 void initializeSerial() {
     Serial.begin(57600);
-    delay(10);
+    hw.delay(10);
     Serial.println("\n\nPAPR Calibrator for Rev 3.1A board");
     Serial.println("Off button: toggle sound");
     Serial.println("On button: toggle increment");
@@ -115,7 +119,7 @@ class PowerOnButtonInterruptCallback : public InterruptCallback {
 public:
     virtual void callback() {
         serialPrintf("PowerOnButtonInterruptCallback, button is now %s", 
-            (digitalRead(POWER_ON_PIN) == BUTTON_PUSHED) ? "pushed" : "released");
+            (hw.digitalRead(POWER_ON_PIN) == BUTTON_PUSHED) ? "pushed" : "released");
     }
 };
 
@@ -126,16 +130,15 @@ PowerOnButtonInterruptCallback powerOnButtonInterruptCallback;
 
 void setup()
 {
-    Hardware::instance.setup();
+    hw.setup();
     initializeSerial();
     fanController.begin();
     setFanDutyCycle(-10);
-    flashLEDs(200, 3);
-    digitalWrite(FAN_HIGH_LED_PIN, LED_ON);
-    digitalWrite(BATTERY_LED_LOW_PIN, LED_ON);
-    Hardware::instance.setPowerOnButtonInterruptCallback(&powerOnButtonInterruptCallback);
+    hw.digitalWrite(FAN_HIGH_LED_PIN, LED_ON);
+    hw.digitalWrite(BATTERY_LED_LOW_PIN, LED_ON);
+    hw.setPowerOnButtonInterruptCallback(&powerOnButtonInterruptCallback);
     //loopCount = 0;
-    //startMillis = millis();
+    //startMillis = hw.millis();
     battery.notifySystemActive(true);
 
     // test the long long datatype
@@ -154,18 +157,18 @@ void setup()
 
 void loop()
 {
-    //unsigned long nowMilliSecs = millis();
+    //unsigned long nowMilliSecs = hw.millis();
     //if (nowMilliSecs - lastHeartBeatToggleMilliSecs > 2000) {
     //    lastHeartBeatToggleMilliSecs = nowMilliSecs;
     //    heartBeatToggle = !heartBeatToggle;
-    //    digitalWrite(CHARGING_LED_PIN, heartBeatToggle ? LED_ON : LED_OFF);
+    //    hw.digitalWrite(CHARGING_LED_PIN, heartBeatToggle ? LED_ON : LED_OFF);
     //}
     offButton.update();
     onButton.update();
     downButton.update();
     upButton.update();
     fanController.getRPM();
-    //unsigned long nowMilliSecs = millis();
+    //unsigned long nowMilliSecs = hw.millis();
     //bool extraInfo = false;
     //if (nowMilliSecs - lastExtraInfoMillis > 2000) {
     //    lastExtraInfoMillis = nowMilliSecs;
@@ -179,9 +182,9 @@ void loop()
     //}
 
     //loopCount += 1;
-    //if (millis() - startMillis >= 10000) {
+    //if (hw.millis() - startMillis >= 10000) {
     //    serialPrintf("%ld loops in %d seconds", loopCount, 10);
     //    loopCount = 0;
-    //    startMillis = millis();
+    //    startMillis = hw.millis();
     //}
 }

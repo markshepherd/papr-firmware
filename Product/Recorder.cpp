@@ -3,6 +3,8 @@
 #include <limits.h>
 #include "FanController.h"
 
+#define hw Hardware::instance
+
 class Sampler {
 public:
     long highest;
@@ -44,12 +46,11 @@ Sampler referenceVoltage;
 Sampler computedMicroAmps;
 Sampler computedMicroVolts;
 
-float filteredBatteryLevel = 0.0;
 const float lowPassFilterN = 500.0;
 
 void beginSamplePeriod()
 {
-    samplePeriodBeginMillis = Hardware::instance.millis();
+    samplePeriodBeginMillis = hw.millis();
     skipReport = false;
     voltage.reset();
     rpm.reset();
@@ -62,7 +63,7 @@ void beginSamplePeriod()
 
 void updateRecorder(unsigned int fanRPM, int currentDutyCycle, bool isCharging, long long picoCoulombs)
 {
-    if (Hardware::instance.millis() - samplePeriodBeginMillis > 5000) {
+    if (hw.millis() - samplePeriodBeginMillis > 5000) {
         if (!skipReport) {
             long long batteryMilliVolts = voltage.average() * NANO_VOLTS_PER_VOLTAGE_UNIT / 1000000;
             int buzzerDutyCycle = (OCR1BH << 8) | OCR1BL;
@@ -70,36 +71,31 @@ void updateRecorder(unsigned int fanRPM, int currentDutyCycle, bool isCharging, 
             char buffer1[50];
             char buffer2[50];
             char buffer3[50];
-            serialPrintf("Duty %d  RPM %ld|%ld|%ld  VOLT %ld|%ld|%ld  filt %ld comp %s\
-  CURR %ld|%ld|%ld  REF %ld|%ld|%ld  uAMPS %ld|%ld|%ld  uVOLTS %ld|%ld|%ld  TONE %s  CHARGE %s  PICOCOUL %s  SAMPLES %lu",
+            serialPrintf("Duty %d  VOLT %ld|%ld|%ld  comp %s\
+  CURR %ld|%ld|%ld  REF %ld|%ld|%ld  uAMPS %ld|%ld|%ld  uVOLTS %ld|%ld|%ld  CHARGE %s  PICOCOUL %s  RPM %ld|%ld|%ld  TONE %s  SAMPLES %lu",
                 currentDutyCycle,
-                rpm.lowest, rpm.average(), rpm.highest,
-                voltage.lowest, voltage.average(), voltage.highest, (long)filteredBatteryLevel, renderLongLong(batteryMilliVolts),
+                voltage.lowest, voltage.average(), voltage.highest, renderLongLong(batteryMilliVolts),
                 current.lowest, current.average(), current.highest,
                 referenceVoltage.lowest, referenceVoltage.average(), referenceVoltage.highest,
                 computedMicroAmps.lowest, computedMicroAmps.average(), computedMicroAmps.highest,
                 computedMicroVolts.lowest, computedMicroVolts.average(), computedMicroVolts.highest,
-                toneOn ? "on" : "off", isCharging ? "yes" : "no", renderLongLong(picoCoulombs), rpm.sampleCount);
+                isCharging ? "yes" : "no", renderLongLong(picoCoulombs),
+                rpm.lowest, rpm.average(), rpm.highest,
+                toneOn ? "on" : "off", rpm.sampleCount);
         }
 
         beginSamplePeriod();
     }
 
-    unsigned int batteryLevel = analogRead(BATTERY_VOLTAGE_PIN);
+    unsigned int batteryLevel = hw.analogRead(BATTERY_VOLTAGE_PIN);
 
     rpm.sample(fanRPM);
-    rawRPM.sample(digitalRead(FAN_RPM_PIN));
+    rawRPM.sample(hw.digitalRead(FAN_RPM_PIN));
     voltage.sample(batteryLevel);
-    referenceVoltage.sample(analogRead(REFERENCE_VOLTAGE_PIN));
-    current.sample(analogRead(CHARGE_CURRENT_PIN));
+    referenceVoltage.sample(hw.analogRead(REFERENCE_VOLTAGE_PIN));
+    current.sample(hw.analogRead(CHARGE_CURRENT_PIN));
     computedMicroAmps.sample((long)(Hardware::instance.readMicroAmps()));
     computedMicroVolts.sample((long)(Hardware::instance.readMicroVolts()));
-
-    // Do a low pass filter on the battery level.
-    // I have found that the filtered battery level varies +/- 2 ADC units, which is much better
-    // than the +/- 50 units we get with the unfiltered battery level. However, the 1-second average method gives
-    // +/- 0.5, which is even better.
-    filteredBatteryLevel = ((filteredBatteryLevel * lowPassFilterN) + (float)batteryLevel) / (lowPassFilterN + 1.0);
 }
 
 void resetRecorder() {
