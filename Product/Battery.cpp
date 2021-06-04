@@ -22,6 +22,7 @@ void Battery::wakeUp() {
     lastVoltageChangeMilliSecs = hw.millis();
     prevIsCharging = false;
     prevMicroVolts = 0;
+    maybeChargingFinished = false;
 }
 
 Battery::Battery()
@@ -41,36 +42,36 @@ if power off (no fan, total power consumption is only a few mA)
     if current < Y then no		low enough that we are certain it's not charging (-50 mA?) (should never happen)
     set ~PWR_EN, V > 10 ? yes : no		
 */
-bool Battery::isCharging() { /* TEMP */ 
-    bool result = tempIsCharging();
-    hw.digitalWrite(CHARGING_LED_PIN, result ? LED_ON : LED_OFF);
-    return result;
-}
+//bool Battery::isCharging() { /* TEMP */ 
+//    bool result = tempIsCharging();
+//    hw.digitalWrite(CHARGING_LED_PIN, result ? LED_ON : LED_OFF);
+//    return result;
+//}
 
-bool Battery::tempIsCharging()/* TEMP */ 
+bool Battery::isCharging()
 {
     if (hw.getPowerMode() == lowPowerMode) {
         // When the board is in low power mode, the battery is disconnected from the charger,
         // and the voltage pin gives the charger's voltage. If the charger is connected, this voltage
         // will definitely be greater than 10 volts, and if not connected it will definitely be less than 10 volts.
-        return hw.readMicroVolts() > 10000000; // we have to use readMicroVolts() instead of microVolts, because microVolts doesn't get updated when in low power mode
+        return hw.readMicroVolts() > 10000000LL; // we have to use readMicroVolts() instead of microVolts, because microVolts doesn't get updated when in low power mode
     }
 
     long long chargeFlowMicroAmps = hw.readMicroAmps();
 
     if (systemActive) {
         // We know that the system is consuming at least 50 milliAmp. If the consumption seems to be way lower, we deduce that the charger must be connected. 
-        return chargeFlowMicroAmps > -50000;
+        return chargeFlowMicroAmps > -50000LL;
     } else {
         // The system is inactive, and therefore total consumption right now is very low, probably within the margin of
         // error of the current sensor.
 
-        if (chargeFlowMicroAmps > 50000) {
+        if (chargeFlowMicroAmps > 50000LL) {
             // we are definitely charging.
             return true;
         }
 
-        if (chargeFlowMicroAmps < -50000) {
+        if (chargeFlowMicroAmps < -50000LL) {
             // we are definitely discharging
             return false;
         }
@@ -81,7 +82,7 @@ bool Battery::tempIsCharging()/* TEMP */
         // therefore we won't be disrupting anything important, and (b) the current is
         // very low so we won't be disruptive to coulomb counting.
         hw.setPowerMode(lowPowerMode);
-        bool result = hw.readMicroVolts() > 10000000;
+        bool result = hw.readMicroVolts() > 10000000LL;
         hw.setPowerMode(fullPowerMode);
         return result;
     }
@@ -145,16 +146,27 @@ void Battery::update()
     //    renderLongLong(chargeFlowMicroAmps), renderLongLong(deltaMicroSecs),
     //    renderLongLong(deltaPicoCoulombs), renderLongLong(picoCoulombs));
  
-    // if the battery has reached the maximum charge, we can safely set the battery coulomb counter
-    // to 100% of the battery capacity. We know we've reached the maximum charge when:
+    // if the battery has reached the maximum charge, we will set the battery coulomb counter
+    // to 100% of the battery capacity. We know we've reached the maximum charge when...
     unsigned long nowMillis = hw.millis();
-    if ((picoCoulombs != BATTERY_CAPACITY_PICO_COULOMBS) &&
-        (chargeFlowMicroAmps >= -10000LL) &&                                         // we're charging right now, AND
-        ((nowMillis - chargeStartMilliSecs) > CHARGER_WINDDOWN_TIME_MILLIS) &&       // we've been charging for a few minutes. AND
-        ((nowMillis - lastVoltageChangeMilliSecs) > CHARGER_WINDDOWN_TIME_MILLIS) && // the battery voltage hasn't changed for a few minutes, AND
-        (chargeFlowMicroAmps < CHARGE_MICRO_AMPS_WHEN_FULL))                         // the current flow rate is below a threshold
+    if (
+        isCharging() &&                                                              // ...we're charging right now, AND
+        ((nowMillis - chargeStartMilliSecs) > CHARGER_WINDDOWN_TIME_MILLIS) &&       // ...we've been charging for a few minutes. AND
+        ((nowMillis - lastVoltageChangeMilliSecs) > CHARGER_WINDDOWN_TIME_MILLIS) && // ...the battery voltage hasn't changed for a few minutes, AND
+        (chargeFlowMicroAmps < CHARGE_MICRO_AMPS_WHEN_FULL))                         // ...the current flow rate is quite low
     {
-        serialPrintf("Charge full. PicoCoulombs was %s. ChargeFlow %s microAmps.", renderLongLong(picoCoulombs), renderLongLong(chargeFlowMicroAmps));
-        picoCoulombs = BATTERY_CAPACITY_PICO_COULOMBS;
+        if (maybeChargingFinished) {
+            if (nowMillis - maybeChargingFinishedMilliSecs > 5000L) {
+                serialPrintf("Charge full. PicoCoulombs was %s. ChargeFlow %s microAmps.",
+                    renderLongLong(picoCoulombs), renderLongLong(chargeFlowMicroAmps));
+                picoCoulombs = BATTERY_CAPACITY_PICO_COULOMBS;
+                maybeChargingFinished = false;
+            }
+        } else {
+            maybeChargingFinished = true;
+            maybeChargingFinishedMilliSecs = nowMillis;
+        }
+    } else {
+        maybeChargingFinished = false;
     }
 }

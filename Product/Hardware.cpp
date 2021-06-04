@@ -111,7 +111,7 @@ long long Hardware::readMicroAmps() {
     long referenceReading = analogRead(REFERENCE_VOLTAGE_PIN);
     long long instantaneousReading = (((long long)(referenceReading - currentReading)) * NANO_AMPS_PER_CHARGE_FLOW_UNIT) / 1000LL;
 
-    const long long lowPassFilterN = 100LL;
+    const long long lowPassFilterN = 10LL;
     microAmps = ((microAmps * lowPassFilterN) + instantaneousReading) / (lowPassFilterN + 1);
     return microAmps;
 }
@@ -187,6 +187,8 @@ void Hardware::setFanRPMInterruptCallback(InterruptCallback* callback)
 void Hardware::setPowerMode(PowerMode mode)
 {
     if (mode == fullPowerMode) {
+        /* TEMP */ //digitalWrite(FAN_MED_LED_PIN, LED_ON);
+
         // Set the PCB to Full Power mode.
         digitalWrite(BOARD_POWER_PIN, BOARD_POWER_ON);
 
@@ -197,7 +199,6 @@ void Hardware::setPowerMode(PowerMode mode)
         setClockPrescaler(0);
 
         // We are now running at full power, full speed.
-        /* TEMP */ digitalWrite(FAN_MED_LED_PIN, LED_ON);
     } else {
         // Full speed doesn't work in low power mode, so drop the MCU clock speed to 1 MHz (8 MHz internal oscillator divided by 2**3). 
         setClockPrescaler(3);
@@ -205,8 +206,11 @@ void Hardware::setPowerMode(PowerMode mode)
         // Now we can enter low power mode,
         digitalWrite(BOARD_POWER_PIN, BOARD_POWER_OFF);
 
+        // Wait for the PCB to fully switch to low power mode (Note: at 1/8 speed, 30 ms is really 240 ms).
+        delay(30);
+
         // We are now running at low power, low speed.
-        /* TEMP */ digitalWrite(FAN_MED_LED_PIN, LED_OFF);
+        /* TEMP */ //digitalWrite(FAN_MED_LED_PIN, LED_OFF);
     }
 
     powerMode = mode;
@@ -220,7 +224,7 @@ void Hardware::setup() {
     // Initialize the hardware
     configurePins();
     initializeDevices();
-    /* TEMP */ digitalWrite(FAN_MED_LED_PIN, LED_ON);
+    /* TEMP */ //digitalWrite(FAN_MED_LED_PIN, LED_ON);
 }
 
 unsigned long getMillis()

@@ -139,7 +139,7 @@ void setup()
     hw.setPowerOnButtonInterruptCallback(&powerOnButtonInterruptCallback);
     //loopCount = 0;
     //startMillis = hw.millis();
-    battery.notifySystemActive(true);
+    battery.notifySystemActive(false);
 
     // test the long long datatype
     //#define LLONG_MAX 9223372036854775807LL
