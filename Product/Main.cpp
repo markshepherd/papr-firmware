@@ -29,20 +29,35 @@ const int URGENT_BATTERY_PERCENT = 8;
 const int FAN_SPEED_READING_INTERVAL = 1000;
 
 // The duty cycle for each fan speed. Indexed by FanSpeed.
-const byte fanDutyCycles[] = { 0, 10, 20 };
+const byte fanDutyCycles[] = { 0, 50, 100 };
 
 // The expected RPM for each fan speed. Indexed by FanSpeed.
-const unsigned int expectedFanRPM[] = { 3123, 12033, 15994 };
+const unsigned int expectedFanRPM[] = { 7479, 16112, 22271 };
+/* Here are measured values for fan RMP for the San Ace 9GA0412P3K011
+   %    MIN     MAX     AVG
 
-// How much tolerance do we give when checking for correct fan RPM
-const float LOWEST_FAN_OK_RPM = 0;
-const float HIGHEST_FAN_OK_RPM = 1000;
+   0,    7461,   7480,    7479
+  10,    9431,   9481,    9456
+  20,   11264,  11284,   11274
+  30,   12908,  12947,   12928
+  40,   14580,  14626,   14603
+  50,   16047,  16177,   16112
+  60,   17682,  17743,   17743
+  70,   19092,  19150,   19121
+  80,   20408,  20488,   20448
+  90,   21510,  21556,   21533
+ 100,   22215,  22327,   22271 
+*/
+
+// How much tolerance do we give when checking for correct fan RPM. We allow +/- 5%.
+const float LOWEST_FAN_OK_RPM = 0.95;
+const float HIGHEST_FAN_OK_RPM = 1.05;
 
 // The fan speed when we startup.
 const FanSpeed DEFAULT_FAN_SPEED = fanLow;
 
 // When we change the fan speed, allow at least this many milliseconds before checking the speed.
-const int FAN_STABILIZE_MILLIS = 3000;
+const int FAN_STABILIZE_MILLIS = 6000;
 
 /********************************************************************
  * Button constants
@@ -189,7 +204,7 @@ void Main::setFanSpeed(FanSpeed speed)
     // disable fan RPM monitor for a few seconds, until the new fan speed stabilizes
     lastFanSpeedChangeMilliSeconds = hw.millis();
     fanSpeedRecentlyChanged = true;
-    resetRecorder();
+    //resetRecorder();
 }
 
 // Call this periodically to check that the fan RPM is within the expected range for the current FanSpeed.
@@ -273,7 +288,7 @@ void Main::enterState(PAPRState newState)
         case stateOn:
         case stateOnCharging:
             battery.notifySystemActive(true);
-            hw.enableFan(true);
+            hw.digitalWrite(FAN_ENABLE_PIN, FAN_ON);
             setFanSpeed(currentFanSpeed);
             analogWrite(BUZZER_PIN, BUZZER_OFF);
             if (currentAlert != alertFanRPM) {
@@ -288,7 +303,7 @@ void Main::enterState(PAPRState newState)
         case stateOffCharging:
             battery.notifySystemActive(false);
             pinMode(BUZZER_PIN, INPUT); // tri-state the output pin, so the buzzer receives no signal and consumes no power.
-            hw.enableFan(false);
+            hw.digitalWrite(FAN_ENABLE_PIN, FAN_OFF);
             currentFanSpeed = DEFAULT_FAN_SPEED;
             cancelAlert();
             allLEDsOff();
