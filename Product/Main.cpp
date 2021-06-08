@@ -146,7 +146,7 @@ void Main::onChargeReminder() {
 }
 
 void Main::onStatusReport() {
-    serialPrintf("Fan %s  Buzzer %s  Alert %s  Charging %s  LEDs %s %s %s, %s, %s %s %s  milliVolts %s  milliAmps %s  Coulombs %s  %d%% charged",
+    serialPrintf("Fan,%s,Buzzer,%s,Alert,%s,Charging,%s,LEDs,%s,%s,%s,%s,%s,%s,%s,milliVolts,%ld,milliAmps,%ld,Coulombs,%ld,charge,%d%%",
         (currentFanSpeed == fanLow) ? "lo" : ((currentFanSpeed == fanMedium) ? "med" : "hi"),
         (buzzerState == BUZZER_ON) ? "on" : "off",
         currentAlertName(),
@@ -158,9 +158,9 @@ void Main::onStatusReport() {
         (ledState[4] == LED_ON) ? "blue" : "---",
         (ledState[5] == LED_ON) ? "blue" : "---",
         (ledState[6] == LED_ON) ? "blue" : "---",
-        renderLongLong(hw.readMicroVolts() / 1000LL),
-        renderLongLong(hw.readMicroAmps() / 1000LL),
-        renderLongLong(battery.getPicoCoulombs() / 1000000000000LL),
+        (long)(hw.readMicroVolts() / 1000LL),
+        (long)(hw.readMicroAmps() / 1000LL),
+        (long)(battery.getPicoCoulombs() / 1000000000000LL),
         getBatteryPercentFull());
 }
 
@@ -202,6 +202,7 @@ void Main::cancelAlert()
 }
 
 void Main::setBuzzer(int onOff) {
+    //serialPrintf("set buzzer %s", onOff == BUZZER_OFF ? "off" : "on");
     hw.analogWrite(BUZZER_PIN, onOff);
     buzzerState = onOff;
 }
@@ -271,7 +272,7 @@ void Main::updateBatteryLEDs() {
 
     // Turn on/off the battery LEDs as required
     setLED(BATTERY_LED_LOW_PIN, redLED ? LED_ON : LED_OFF); // red
-    setLED(BATTERY_LED_MED_PIN, ((percentFull > 15) && (percentFull < 95)) ? LED_ON : LED_OFF); // yellow
+    setLED(BATTERY_LED_MED_PIN, ((percentFull > 15) && (percentFull < 97)) ? LED_ON : LED_OFF); // yellow
     setLED(BATTERY_LED_HIGH_PIN, (percentFull > 70) ? LED_ON : LED_OFF); // green
 
     // Turn on/off the charging indicator LED as required
@@ -390,6 +391,7 @@ bool Main::doPowerOffWarning()
     while (hw.digitalRead(POWER_OFF_PIN) == BUTTON_PUSHED) {
         if (hw.millis() - startMillis > POWER_OFF_BUTTON_HOLD_MILLIS) {
             allLEDsOff();
+            setBuzzer(BUZZER_OFF);
             return true;
         }
     }
@@ -526,6 +528,10 @@ void Main::setup()
     delay(1000);
     serialInit();
     serialPrintf("PAPR Rev 3, MCUSR = %x", resetFlags);
+    serialPrintf("UCSR0B %x", UCSR0B);
+    UCSR0B &= ~(1 << RXEN0);
+    UCSR0B &= ~(1 << RXCIE0);
+    serialPrintf("UCSR0B %x", UCSR0B);
     #endif
 
     // Decide what power state we should be in.
@@ -558,6 +564,7 @@ void Main::setup()
 
     hw.setPowerOnButtonInterruptCallback(this);
 
+    battery.initializeCoulombCount();
     if (battery.isCharging()) {
         initialPowerState = (PAPRState)((int)initialPowerState + 2);
     }

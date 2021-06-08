@@ -8,11 +8,13 @@ public:
     long long getPicoCoulombs() { return picoCoulombs; }
     void notifySystemActive(bool active) { systemActive = active; }
     void DEBUG_incrementPicoCoulombs(long long increment);
+    void initializeCoulombCount();
     Battery();
 
 private:
     void updateBatteryVoltage();
     void updateBatteryTimers();
+    static long long estimatePicoCoulombsFromVoltage(long long microVolts);
 
     long long picoCoulombs; // How much charge is in the battery right now.
     long long microVolts;   // The voltage right now.

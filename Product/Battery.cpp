@@ -25,10 +25,26 @@ void Battery::wakeUp() {
     maybeChargingFinished = false;
 }
 
+long long Battery::estimatePicoCoulombsFromVoltage(long long microVolts) {    
+    const long milliVolts = ((long)microVolts) / 1000L;
+    long coulombs;
+
+    if (milliVolts >= 20000L) {
+        coulombs = 5000L + ((milliVolts - 20000L) * 4);
+    } else {
+        coulombs = 2000L + (milliVolts - 16500L);
+    }
+
+    return ((long long)coulombs) * 1000000000000LL;
+}
+
+void Battery::initializeCoulombCount() {
+    picoCoulombs = constrain(estimatePicoCoulombsFromVoltage(hw.readMicroVolts()), 0, BATTERY_CAPACITY_PICO_COULOMBS);
+}
+
 Battery::Battery()
 {
     wakeUp();
-    picoCoulombs = BATTERY_CAPACITY_PICO_COULOMBS / 2; // TODO use the voltage to estimate this
 }
 
 /*
@@ -59,25 +75,25 @@ bool Battery::isCharging()
 
     long long chargeFlowMicroAmps = hw.readMicroAmps();
 
-    return chargeFlowMicroAmps > 0LL;
+    if (systemActive) {
+        // // We know that the system is consuming at least 50 milliAmp. If the consumption is less than that, we deduce that the charger must be connected. 
+        return chargeFlowMicroAmps > -50000LL;
+    }
+    else {
+        return chargeFlowMicroAmps > -10000LL;
+    }
 
-    //if (systemActive) {
-    //    // // We know that the system is consuming at least 50 milliAmp. If the consumption seems to be way lower, we deduce that the charger must be connected. 
-    //    return chargeFlowMicroAmps > 0LL;
-    //} else {
-    //    // The system is inactive, and therefore total consumption right now is very low, probably within the margin of
-    //    // error of the current sensor.
-
+    // OLD --
+    // The system is inactive, and therefore total consumption right now is very low, probably within the margin of
+    // error of the current sensor.
     //    if (chargeFlowMicroAmps > 50000LL) {
     //        // we are definitely charging.
     //        return true;
     //    }
-
     //    if (chargeFlowMicroAmps < -50000LL) {
     //        // we are definitely discharging
     //        return false;
     //    }
-
     //    // At this point we don't really know if the charger is connected or not. 
     //    // The only way to tell is to temporarily switch the board to low power mode.
     //    // (it is safe to go into low power mode because (a) the system is inactive and
@@ -87,7 +103,6 @@ bool Battery::isCharging()
     //    bool result = hw.readMicroVolts() > 10000000LL;
     //    hw.setPowerMode(fullPowerMode);
     //    return result;
-    //}
 }
 
 // Update "microVolts" which is just a low-pass filtered version of hw.readMicroVolts(). We do the filtering to smooth out random variations in the readings.
@@ -151,7 +166,7 @@ void Battery::update()
     // if the battery has reached the maximum charge, we will set the battery coulomb counter
     // to 100% of the battery capacity. We know we've reached the maximum charge when...
     unsigned long nowMillis = hw.millis();
-    if (
+    if ((picoCoulombs != BATTERY_CAPACITY_PICO_COULOMBS) &&
         isCharging() &&                                                              // ...we're charging right now, AND
         ((nowMillis - chargeStartMilliSecs) > CHARGER_WINDDOWN_TIME_MILLIS) &&       // ...we've been charging for a few minutes. AND
         ((nowMillis - lastVoltageChangeMilliSecs) > CHARGER_WINDDOWN_TIME_MILLIS) && // ...the battery voltage hasn't changed for a few minutes, AND
@@ -159,8 +174,8 @@ void Battery::update()
     {
         if (maybeChargingFinished) {
             if (nowMillis - maybeChargingFinishedMilliSecs > 5000L) {
-                serialPrintf("Charge full. PicoCoulombs was %s. ChargeFlow %s microAmps.",
-                    renderLongLong(picoCoulombs), renderLongLong(chargeFlowMicroAmps));
+                //serialPrintf("Charge full. PicoCoulombs was %s. ChargeFlow %s microAmps.",
+                //    renderLongLong(picoCoulombs), renderLongLong(chargeFlowMicroAmps));
                 picoCoulombs = BATTERY_CAPACITY_PICO_COULOMBS;
                 maybeChargingFinished = false;
             }

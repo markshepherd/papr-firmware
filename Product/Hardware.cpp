@@ -34,8 +34,8 @@ void Hardware::configurePins()
     pinMode(FAN_LOW_LED_PIN, OUTPUT);
     pinMode(FAN_MED_LED_PIN, OUTPUT);
     pinMode(FAN_HIGH_LED_PIN, OUTPUT);
-    pinMode(SERIAL_RX_PIN, INPUT);
-    pinMode(SERIAL_TX_PIN, OUTPUT);
+    //pinMode(SERIAL_RX_PIN, INPUT);
+    //pinMode(SERIAL_TX_PIN, OUTPUT);
 }
 
 // Set all devices to an initial state
