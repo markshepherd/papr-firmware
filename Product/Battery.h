@@ -7,6 +7,7 @@ public:
     void wakeUp();
     long long getPicoCoulombs() { return picoCoulombs; }
     void notifySystemActive(bool active) { systemActive = active; }
+    void DEBUG_incrementPicoCoulombs(long long increment);
     Battery();
 
 private:

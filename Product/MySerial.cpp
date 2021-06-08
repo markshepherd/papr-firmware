@@ -29,6 +29,7 @@ void serialPrintf(const char* __fmt, ...) {
 	vsnprintf(buffer, sizeof(buffer), __fmt, args);
 	va_end(args);
 	Serial.println(buffer);
+	Serial.flush(); // TEMP DON'T HAVE THIS IN PRODUCT
 	nextBuffer = 0;
 	//mySerial.print("\r\n");
 }

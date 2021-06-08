@@ -48,10 +48,12 @@ private:
     // Internal functions
     void allLEDsOff();
     void allLEDsOn();
+    void setLED(const int pin, int onOff);
     void setLEDs(const int* pinList, int onOff);
     void flashAllLEDs(int millis, int count);
     void onToggleAlert();
     void onChargeReminder();
+    void onStatusReport();
     void onBeepTimer();
     void raiseAlert(Alert alert);
     void setFanSpeed(FanSpeed speed);
@@ -59,6 +61,8 @@ private:
     void checkForBatteryAlert();
     void onPowerOffPress();
     void onPowerOnPress();
+    void onFanDownPress();
+    void onFanUpPress();
     void enterState(PAPRState newState);
     void nap();
     void doAllUpdates();
@@ -67,16 +71,9 @@ private:
     void cancelAlert();
     bool doPowerOffWarning();
     int getBatteryPercentFull();
-
-    // Event handler glue code
-    static void staticToggleAlert();
-    static void staticChargeReminder();
-    static void staticBeepTimer();
-    static void staticFanDownPress(const int);
-    static void staticFanUpPress(const int);
-    static void staticPowerOffPress(const int);
-    static void staticPowerOnPress(const int);
-
+    void setBuzzer(int onOff);
+    const char* currentAlertName() { return (currentAlert == alertNone) ? "no" : ((currentAlert == alertBatteryLow) ? "batt" : "fan"); }
+    
     /********************************************************************
      * Fan data
      ********************************************************************/
@@ -110,6 +107,9 @@ private:
      ********************************************************************/
     PAPRState paprState;
     Battery battery;
+    int ledState[numLEDs];
+    int buzzerState;
+    PeriodicCallback statusReport;
 
 public:
     // Glue

@@ -54,38 +54,40 @@ bool Battery::isCharging()
         // When the board is in low power mode, the battery is disconnected from the charger,
         // and the voltage pin gives the charger's voltage. If the charger is connected, this voltage
         // will definitely be greater than 10 volts, and if not connected it will definitely be less than 10 volts.
-        return hw.readMicroVolts() > 10000000LL; // we have to use readMicroVolts() instead of microVolts, because microVolts doesn't get updated when in low power mode
+        return hw.readMicroVolts() > 10000000LL;
     }
 
     long long chargeFlowMicroAmps = hw.readMicroAmps();
 
-    if (systemActive) {
-        // We know that the system is consuming at least 50 milliAmp. If the consumption seems to be way lower, we deduce that the charger must be connected. 
-        return chargeFlowMicroAmps > -50000LL;
-    } else {
-        // The system is inactive, and therefore total consumption right now is very low, probably within the margin of
-        // error of the current sensor.
+    return chargeFlowMicroAmps > 0LL;
 
-        if (chargeFlowMicroAmps > 50000LL) {
-            // we are definitely charging.
-            return true;
-        }
+    //if (systemActive) {
+    //    // // We know that the system is consuming at least 50 milliAmp. If the consumption seems to be way lower, we deduce that the charger must be connected. 
+    //    return chargeFlowMicroAmps > 0LL;
+    //} else {
+    //    // The system is inactive, and therefore total consumption right now is very low, probably within the margin of
+    //    // error of the current sensor.
 
-        if (chargeFlowMicroAmps < -50000LL) {
-            // we are definitely discharging
-            return false;
-        }
+    //    if (chargeFlowMicroAmps > 50000LL) {
+    //        // we are definitely charging.
+    //        return true;
+    //    }
 
-        // At this point we don't really know if the charger is connected or not. 
-        // The only way to tell is to temporarily switch the board to low power mode.
-        // (it is safe to go into low power mode because (a) the system is inactive and
-        // therefore we won't be disrupting anything important, and (b) the current is
-        // very low so we won't be disruptive to coulomb counting.
-        hw.setPowerMode(lowPowerMode);
-        bool result = hw.readMicroVolts() > 10000000LL;
-        hw.setPowerMode(fullPowerMode);
-        return result;
-    }
+    //    if (chargeFlowMicroAmps < -50000LL) {
+    //        // we are definitely discharging
+    //        return false;
+    //    }
+
+    //    // At this point we don't really know if the charger is connected or not. 
+    //    // The only way to tell is to temporarily switch the board to low power mode.
+    //    // (it is safe to go into low power mode because (a) the system is inactive and
+    //    // therefore we won't be disrupting anything important, and (b) the current is
+    //    // very low so we won't be disruptive to coulomb counting.
+    //    hw.setPowerMode(lowPowerMode);
+    //    bool result = hw.readMicroVolts() > 10000000LL;
+    //    hw.setPowerMode(fullPowerMode);
+    //    return result;
+    //}
 }
 
 // Update "microVolts" which is just a low-pass filtered version of hw.readMicroVolts(). We do the filtering to smooth out random variations in the readings.
@@ -109,7 +111,7 @@ void Battery::updateBatteryTimers()
     if (abs(microVolts - prevMicroVolts) >= BATTERY_MICRO_VOLTS_CHANGED_THRESHOLD) {
         // voltage has changed since last time we checked
         lastVoltageChangeMilliSecs = hw.millis();
-        serialPrintf("Voltage changed from %s uV to %s uV at %ld", renderLongLong(prevMicroVolts), renderLongLong(microVolts), lastVoltageChangeMilliSecs);
+        //serialPrintf("Voltage changed from %s uV to %s uV at %ld", renderLongLong(prevMicroVolts), renderLongLong(microVolts), lastVoltageChangeMilliSecs);
         prevMicroVolts = microVolts;
     }
 }
@@ -170,3 +172,10 @@ void Battery::update()
         maybeChargingFinished = false;
     }
 }
+
+void Battery::DEBUG_incrementPicoCoulombs(long long increment)
+{
+    picoCoulombs += increment;
+    picoCoulombs = constrain(picoCoulombs, 0, BATTERY_CAPACITY_PICO_COULOMBS);
+}
+
