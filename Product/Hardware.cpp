@@ -26,6 +26,7 @@ void Hardware::configurePins()
     pinMode(CHARGE_CURRENT_PIN, INPUT);
     pinMode(REFERENCE_VOLTAGE_PIN, INPUT);
     pinMode(BOARD_POWER_PIN, OUTPUT);
+    pinMode(CHARGER_CONNECTED_PIN, INPUT_PULLUP);
     pinMode(BUZZER_PIN, OUTPUT);
     pinMode(BATTERY_LED_LOW_PIN, OUTPUT);
     DDRB |= (1 << DDB7); // pinMode(BATTERY_LED_MED_PIN, OUTPUT); // we can't use pinMode because it doesn't support pin PB7

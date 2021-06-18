@@ -4,15 +4,7 @@
 //#include "stdarg.h"
 //#include "stdio.h"
 #include "Arduino.h"
-// #include "Hardware.h"
-// #include <SoftwareSerial.h>
-
-//#define MOSI_PIN 11  /* PB3 */ 
-//#define MOSO_PIN 12  /* PB4 */ 
-//const int serialRxPin = MOSO_PIN;
-//const int serialTxPin = MOSI_PIN;
-
-//SoftwareSerial mySerial(serialRxPin, serialTxPin);
+#include "Hardware.h"
 
 static char buffer1[30];
 static char buffer2[30];
@@ -31,12 +23,16 @@ void serialPrintf(const char* __fmt, ...) {
 	Serial.println(buffer);
 	Serial.flush(); // TEMP DON'T HAVE THIS IN PRODUCT
 	nextBuffer = 0;
-	//mySerial.print("\r\n");
 }
 
 void serialInit() {
-	//mySerial.begin(57600);
 	Serial.begin(57600);
+
+	// Make sure the serial software doesn't try to use pin 0 to receive data,
+	// because that pin is being used as a digital input.
+	UCSR0B = UCSR0B & ~(1 << RXCIE0); // disable RX Complete Interrupt Enable
+	UCSR0B = UCSR0B & ~(1 << RXEN0); // disable USART Receiver.
+	pinMode(CHARGER_CONNECTED_PIN, INPUT_PULLUP);
 }
 
 //char* renderDouble(double number, char* pBuffer)
@@ -57,7 +53,7 @@ void serialInit() {
 //}
 
 char* renderLongLong(long long num) {
-	// doesn't work for LLONG_MAX + 1, which is -LLONG_MAX - 1
+	// doesn't work for LLONG_MAX + 1, a.k.a. -LLONG_MAX - 1
 
 	if (num == 0) {
 		static char* zero = "0";
@@ -124,5 +120,5 @@ char* renderLongLong(long long num) {
 #include "Arduino.h"
 void serialInit() { }
 void serialPrintf(const char* __fmt, ...) {}
-char* renderDouble(double number, char* pBuffer = 0) { return 0; }
+char* renderLongLong(long long num) { return 0; }
 #endif

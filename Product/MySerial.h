@@ -1,6 +1,6 @@
 #pragma once
 
-#define SERIAL_ENABLED
+#undef SERIAL_ENABLED
 
 void serialInit();
 void serialPrintf(const char* __fmt, ...);

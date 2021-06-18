@@ -62,6 +62,8 @@ const int FAN_OFF = LOW;
 const int BATTERY_VOLTAGE_PIN = A7;   // ADC7  input   10-bit ADC: convert to voltage using NANO_VOLTS_PER_VOLTAGE_UNIT
 const int CHARGE_CURRENT_PIN = A6;    // ADC6  input   10-bit ADC: convert to amps using MICRO_AMPS_PER_CHARGE_FLOW_UNIT
 const int REFERENCE_VOLTAGE_PIN = A1; // PC1   input   10-bit ADC
+const int CHARGER_CONNECTED_PIN = 0;  // PD0   input   Digital: LOW = connected, HIGH = not connected. Warning this is the same as SERIAL_RX_PIN.
+const int CHARGER_CONNECTED = LOW;
 const int BOARD_POWER_PIN = 6;        // PD6   output  Digital: LOW = power off, HIGH = power on
 const int BOARD_POWER_ON = HIGH;      
 const int BOARD_POWER_OFF = LOW;      

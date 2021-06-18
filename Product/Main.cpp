@@ -9,6 +9,7 @@
  * 
  */
 #include "Main.h"
+#include "PB2PWM.h"
 #include <LowPower.h>
 #include "MySerial.h"
 #include "Hardware.h"
@@ -89,6 +90,10 @@ const int* alertLEDs[] = { 0, batteryLowLEDs, fanRPMLEDs }; // Indexed by enum A
 const int batteryAlertMillis[] = { 1000, 1000 };
 const int fanAlertMillis[] = { 200, 200 };
 const int* alertMillis[] = { 0, batteryAlertMillis, fanAlertMillis }; // Indexed by enum Alert.
+
+// Buzzer settings.
+const long BUZZER_FREQUENCY = 2500; // in Hz
+const int BUZZER_DUTYCYCLE = 50; // in percent
 
 /********************************************************************
  * LED
@@ -203,7 +208,11 @@ void Main::cancelAlert()
 
 void Main::setBuzzer(int onOff) {
     //serialPrintf("set buzzer %s", onOff == BUZZER_OFF ? "off" : "on");
-    hw.analogWrite(BUZZER_PIN, onOff);
+    if (onOff) {
+        startPB2PWM(BUZZER_FREQUENCY, BUZZER_DUTYCYCLE);
+    } else {
+        stopPB2PWM();
+    }
     buzzerState = onOff;
 }
 

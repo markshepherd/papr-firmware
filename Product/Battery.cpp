@@ -66,24 +66,25 @@ if power off (no fan, total power consumption is only a few mA)
 
 bool Battery::isCharging()
 {
-    if (hw.getPowerMode() == lowPowerMode) {
-        // When the board is in low power mode, the battery is disconnected from the charger,
-        // and the voltage pin gives the charger's voltage. If the charger is connected, this voltage
-        // will definitely be greater than 10 volts, and if not connected it will definitely be less than 10 volts.
-        return hw.readMicroVolts() > 10000000LL;
-    }
-
-    long long chargeFlowMicroAmps = hw.readMicroAmps();
-
-    if (systemActive) {
-        // // We know that the system is consuming at least 50 milliAmp. If the consumption is less than that, we deduce that the charger must be connected. 
-        return chargeFlowMicroAmps > -50000LL;
-    }
-    else {
-        return chargeFlowMicroAmps > -10000LL;
-    }
+    return hw.digitalRead(CHARGER_CONNECTED_PIN) == CHARGER_CONNECTED;
 
     // OLD --
+    //if (hw.getPowerMode() == lowPowerMode) {
+    //    // When the board is in low power mode, the battery is disconnected from the charger,
+    //    // and the voltage pin gives the charger's voltage. If the charger is connected, this voltage
+    //    // will definitely be greater than 10 volts, and if not connected it will definitely be less than 10 volts.
+    //    return hw.readMicroVolts() > 10000000LL;
+    //}
+    //long long chargeFlowMicroAmps = hw.readMicroAmps();
+    //if (systemActive) {
+    //    // // We know that the system is consuming at least 50 milliAmp. If the consumption is less than that, we deduce that the charger must be connected. 
+    //    return chargeFlowMicroAmps > -50000LL;
+    //}
+    //else {
+    //    return chargeFlowMicroAmps > -10000LL;
+    //}
+
+    // OLD OLD --
     // The system is inactive, and therefore total consumption right now is very low, probably within the margin of
     // error of the current sensor.
     //    if (chargeFlowMicroAmps > 50000LL) {
