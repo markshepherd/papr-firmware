@@ -25,17 +25,16 @@
 // The PCB can run in either High Power mode or Low Power mode.
 // - High Power Mode means that the PCB and MCU are fully powered 
 // - Low Power Mode means that the MCU receives reduced voltage (approx 2.5 instead of 5)
-//   and the rest of the PCB receives no power. In this mode, we must run the MCU at a
-//   reduced clock speed (1 MHz instead of 8 MHz).
+//   and the rest of the PCB receives no power. In this mode, the MCU cannot run at full speed,
+//   so we use a reduced clock speed (1 MHz instead of 8 MHz).
 //
 // The low power mode is intended for use when the PAPR is in the Power Off state. Im this state,
 // you can use the MCU to check for button presses or charger activity, while consuming a negligible 
 // amount of battery power.
 enum PowerMode { lowPowerMode, fullPowerMode };
 
-// On startup we are in low power mode: the low fuse byte causes the clock divider to be initialed to 2**3,
-// and the PCB initializes itself to power off.
-
+// On startup PCB initializes itself to the low power mode, and the MCU's low fuse byte
+// initializes the MCU clock divider to 2**3, which results in MCU clock of 1 MHz
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
