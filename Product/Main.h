@@ -24,7 +24,13 @@ enum Alert { alertNone, alertBatteryLow, alertFanRPM };
 // The user can choose any of these speeds
 enum FanSpeed { fanLow, fanMedium, fanHigh };
 
-// We can be either on or off, and either charging or not charging.
+// PAPRState is the states that the user perceives: the power is either on or off,
+// and the charger is either connected or disconnected. In reality, the MCU and the PCB
+// starts running when a battery is first connected and runs continuously until the battery is 
+// removed or is exhausted. If the user never drains the battery and charges the battery as needed,
+// this software will keep running for months at a time. When we are in stateOff or stateOffCharging,
+// the user thinks the device is turned off, but really we just turn off the fan and most/all of the lights, 
+// and then monitor the charging (if stateOffCharging) or take a low-power nap (if stateOff).
 enum PAPRState { stateOff, stateOn, stateOffCharging, stateOnCharging };
 
 class Main : public InterruptCallback {

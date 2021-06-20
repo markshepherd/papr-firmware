@@ -4,11 +4,12 @@
  * The main program of the PAPR product firmware.
  * 
  * KEEP THE MAIN LOOP RUNNING AT ALL TIMES. DO NOT USE DELAY().
- * Be careful - this firmware keeps running even when the user does "Power Off". This code may need to run correctly for months at a time. Don't break this code!
+ * Be careful - this firmware keeps running even when the user does "Power Off".
+ * This code may need to run correctly for months at a time. Don't break this code!
  * All code must work when millis() and micros() wrap around
  * 
  * Once a battery is connected to the PCB, the system runs continuously forever. The 
- * only time we truly shut down is if the user completely drains the battery. 
+ * only time we actually shut down is if the user completely drains the battery. 
  */
 #include "Main.h"
 #include "PB2PWM.h"
@@ -20,10 +21,8 @@
  // and never access any hardware or Arduino APIs directly. This gives us the option of using a fake hardware object for unit testing.
 #define hw Hardware::instance
 
-const int URGENT_BATTERY_PERCENT = 8;
-
-const char* STATE_NAMES[] = { "Off", "On", "Off Charging", "On Charging" }; // indexed by PAPRState
-
+// indexed by PAPRState
+const char* STATE_NAMES[] = { "Off", "On", "Off Charging", "On Charging" };
 
 /********************************************************************
  * Fan constants
@@ -62,6 +61,7 @@ const float HIGHEST_FAN_OK_RPM = 1.05;
 const FanSpeed DEFAULT_FAN_SPEED = fanLow;
 
 // When we change the fan speed, allow at least this many milliseconds before checking the speed.
+// This gives the fan enough time to stabilize at the new speed.
 const int FAN_STABILIZE_MILLIS = 6000;
 
 /********************************************************************
@@ -97,12 +97,22 @@ const int* alertMillis[] = { 0, batteryAlertMillis, fanAlertMillis }; // Indexed
 const long BUZZER_FREQUENCY = 2500; // in Hz
 const int BUZZER_DUTYCYCLE = 50; // in percent
 
+// A "low battery" alarm is in effect whenever the battery level is at or below the "urgent" amount.
+// If a charger is connected then the red LED flashes until the level is above the urgent amount,
+// but the buzzer doesn't sound.
+// This percentage is supposed to occur when the battery has 30 minutes of charge left. To give a 
+// generous margin, it's actually about an hour.
+const int URGENT_BATTERY_PERCENT = 8;
+
 /********************************************************************
  * LED
  ********************************************************************/
 
+// Set a single LED to o given state
 void Main::setLED(const int pin, int onOff) {
     hw.digitalWrite(pin, onOff);
+
+    // keep track of the LED's state in ledState.
     for (int i = 0; i < numLEDs; i++) {
         if (pin == LEDpins[i]) {
             ledState[i] = onOff;
@@ -135,6 +145,7 @@ void Main::setLEDs(const int* pinList, int onOff)
     }
 }
 
+// Flash all the LEDS for a specified duration and number of flashes.
 void Main::flashAllLEDs(int millis, int count)
 {
     while (count--) {
@@ -145,36 +156,6 @@ void Main::flashAllLEDs(int millis, int count)
     }
 }
 
-void Main::onChargeReminder() {
-    serialPrintf("reminder beep");
-    setBuzzer(BUZZER_ON);
-    setLED(CHARGING_LED_PIN, LED_ON);
-    beepTimer.start(500);
-}
-
-void Main::onStatusReport() {
-    serialPrintf("Fan,%s,Buzzer,%s,Alert,%s,Charging,%s,LEDs,%s,%s,%s,%s,%s,%s,%s,milliVolts,%ld,milliAmps,%ld,Coulombs,%ld,charge,%d%%",
-        (currentFanSpeed == fanLow) ? "lo" : ((currentFanSpeed == fanMedium) ? "med" : "hi"),
-        (buzzerState == BUZZER_ON) ? "on" : "off",
-        currentAlertName(),
-        battery.isCharging() ? "yes" : "no",
-        (ledState[0] == LED_ON) ? "red" : "---",
-        (ledState[1] == LED_ON) ? "yellow" : "---",
-        (ledState[2] == LED_ON) ? "green" : "---",
-        (ledState[3] == LED_ON) ? "amber" : "---",
-        (ledState[4] == LED_ON) ? "blue" : "---",
-        (ledState[5] == LED_ON) ? "blue" : "---",
-        (ledState[6] == LED_ON) ? "blue" : "---",
-        (long)(hw.readMicroVolts() / 1000LL),
-        (long)(hw.readMicroAmps() / 1000LL),
-        (long)(battery.getPicoCoulombs() / 1000000000000LL),
-        getBatteryPercentFull());
-}
-
-void Main::onBeepTimer() {
-    setBuzzer(BUZZER_OFF);
-    setLED(CHARGING_LED_PIN, LED_OFF);
-}
 
 /********************************************************************
  * Alert
@@ -202,12 +183,14 @@ void Main::raiseAlert(Alert alert)
     onToggleAlert();
 }
 
+// Turn off any active alert.
 void Main::cancelAlert()
 {
     currentAlert = alertNone;
     alertTimer.cancel();
 }
 
+// Turn the buzzer on or off.
 void Main::setBuzzer(int onOff) {
     //serialPrintf("set buzzer %s", onOff == BUZZER_OFF ? "off" : "on");
     if (onOff) {
@@ -222,6 +205,7 @@ void Main::setBuzzer(int onOff) {
  * Fan
  ********************************************************************/
 
+// Update the fan indicator LEDs to correspond to the current fan setting.
 void Main::updateFanLEDs()
 {
     setLED(FAN_LOW_LED_PIN, LED_ON);
@@ -240,7 +224,6 @@ void Main::setFanSpeed(FanSpeed speed)
     // disable fan RPM monitor for a few seconds, until the new fan speed stabilizes
     lastFanSpeedChangeMilliSeconds = hw.millis();
     fanSpeedRecentlyChanged = true;
-    //resetRecorder();
 }
 
 // Call this periodically to check that the fan RPM is within the expected range for the current FanSpeed.
@@ -271,12 +254,14 @@ int Main::getBatteryPercentFull() {
     return (int)((battery.getPicoCoulombs() - BATTERY_MIN_CHARGE_PICO_COULOMBS) / ((BATTERY_CAPACITY_PICO_COULOMBS - BATTERY_MIN_CHARGE_PICO_COULOMBS) / 100LL));
 }
 
-// Call this to update the battery level LEDs.
+// Call this periodically to update the battery and charging LEDs.
 void Main::updateBatteryLEDs() {
     int percentFull = getBatteryPercentFull();
 
+    // Decide if the red LED should be on or not.
     bool redLED = (percentFull < 40);
     if (percentFull <= URGENT_BATTERY_PERCENT) {
+        // The battery level is really low. Flash the LED.
         bool ledToggle = (hw.millis() / 1000) & 1;
         redLED = redLED && ledToggle;
     }
@@ -289,6 +274,9 @@ void Main::updateBatteryLEDs() {
     // Turn on/off the charging indicator LED as required
     setLED(CHARGING_LED_PIN, battery.isCharging() ? LED_ON : LED_OFF); // orange
     
+    // Maybe turn the charge reminder on or off.
+    // The "charge reminder" is the periodic beep that occurs when the battery is below 15%
+    // to remind the user to recharge the unit as soon as possible.
     if (!battery.isCharging() && percentFull <= 15 && currentAlert != alertBatteryLow) {
         if (!chargeReminder.isActive()) {
             onChargeReminder();
@@ -299,6 +287,7 @@ void Main::updateBatteryLEDs() {
     }
 }
 
+// Call this periodically to decide if a battery alert should be started or terminated.
 void Main::checkForBatteryAlert()
 {
     if (currentAlert == alertBatteryLow) {
@@ -311,10 +300,26 @@ void Main::checkForBatteryAlert()
     }
 }
 
+// This is the callback function for chargeReminder. When it's active, this function gets called every minute or so.
+// We turn on the buzzer and the charging LED, then set a timer for when to turn buzzer and LED off.
+void Main::onChargeReminder() {
+    serialPrintf("reminder beep");
+    setBuzzer(BUZZER_ON);
+    setLED(CHARGING_LED_PIN, LED_ON);
+    beepTimer.start(500);
+}
+
+// This is the callback function for beepTimer. This function gets called to turn off the chargeReminder buzzer and LED. 
+void Main::onBeepTimer() {
+    setBuzzer(BUZZER_OFF);
+    setLED(CHARGING_LED_PIN, LED_OFF);
+}
+
 /********************************************************************
  * states and modes
  ********************************************************************/
 
+// Go into a new state.
 void Main::enterState(PAPRState newState)
 {
     serialPrintf("\r\nenter state %s", STATE_NAMES[newState]);
@@ -324,7 +329,6 @@ void Main::enterState(PAPRState newState)
     switch (newState) {
         case stateOn:
         case stateOnCharging:
-            battery.notifySystemActive(true);
             hw.digitalWrite(FAN_ENABLE_PIN, FAN_ON);
             setFanSpeed(currentFanSpeed);
             setBuzzer(BUZZER_OFF);
@@ -338,7 +342,6 @@ void Main::enterState(PAPRState newState)
 
         case stateOff:
         case stateOffCharging:
-            battery.notifySystemActive(false);
             pinMode(BUZZER_PIN, INPUT); // tri-state the output pin, so the buzzer receives no signal and consumes no power.
             hw.digitalWrite(FAN_ENABLE_PIN, FAN_OFF);
             currentFanSpeed = DEFAULT_FAN_SPEED;
@@ -348,6 +351,11 @@ void Main::enterState(PAPRState newState)
     }
 }
 
+// Set the PCB to its low power state, and put the MCU into its lowest power sleep mode.
+// This function will return only when the user presses the Power On button,
+// or until the charger is connected. While we are napping, the system uses a negligible amount
+// of power, perhaps 1-3% of a full battery charge every month.
+//
 // Be careful inside this function, it's the only place where we mess around with
 // power, speed, watchdog, and sleeping. If you break this code it will mess up
 // a lot of things! 
@@ -360,11 +368,6 @@ void Main::nap()
     hw.setPowerMode(lowPowerMode);
     while (true) {
         LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
-
-        // TEMP
-        //setLED(FAN_HIGH_LED_PIN, LED_ON);
-        //hw.delayMicroseconds(100);
-        //setLED(FAN_HIGH_LED_PIN, LED_OFF);
 
         if (battery.isCharging()) {
             hw.setPowerMode(fullPowerMode);
@@ -390,6 +393,9 @@ void Main::nap()
  * UI event handlers
  ********************************************************************/
 
+// when the user presses Power Off, we want to give the user an audible and visible signal
+// in case they didn't mean to do it. If the user holds the button long enough we return true,
+// meaning that the user really wants to do it.
 bool Main::doPowerOffWarning()
 {
     // Turn on all LEDs, and the buzzer
@@ -420,22 +426,23 @@ bool Main::doPowerOffWarning()
     return false;
 }
 
-
+// This function gets called when the user presses the Power On button
 void Main::onPowerOnPress()
 {
     switch (paprState) {
         case stateOn:
         case stateOnCharging:
-        case stateOff:
             // do nothing
             break;
 
+        case stateOff: // should never happen
         case stateOffCharging:
             enterState(stateOnCharging);
             break;
     }
 }
 
+// This function gets called when the user presses the Power On button
 void Main::onPowerOffPress()
 {
     switch (paprState) {
@@ -458,9 +465,10 @@ void Main::onPowerOffPress()
     }
 }
 
+// This function gets called when the user presses the Fan Down button
 void Main::onFanDownPress()
 {
-    /* TEMP */
+    /* TEMP for testing/debugging: decrease the current battery level by a few percent. */
     if (digitalRead(POWER_ON_PIN) == BUTTON_PUSHED) {
         battery.DEBUG_incrementPicoCoulombs(-1500000000000000LL);
         serialPrintf("Charge is %d%", getBatteryPercentFull());
@@ -470,9 +478,10 @@ void Main::onFanDownPress()
     setFanSpeed((currentFanSpeed == fanHigh) ? fanMedium : fanLow);
 }
 
+// This function gets called when the user presses the Fan Up button
 void Main::onFanUpPress()
 {
-    /* TEMP */
+    /* TEMP for testing/debugging: increase the current battery level by a few percent. */
     if (digitalRead(POWER_ON_PIN) == BUTTON_PUSHED) {
         battery.DEBUG_incrementPicoCoulombs(1500000000000000LL);
         serialPrintf("Charge is %d%", getBatteryPercentFull());
@@ -528,21 +537,18 @@ Main::Main() :
     instance = this;
 }
 
+// This function gets called once, when the MCU starts up.
 void Main::setup()
 {
-    //unsigned long setupStartMillis = hw.millis();
     // Make sure watchdog is off. Remember what kind of reset just happened. Setup the hardware.
     int resetFlags = hw.watchdogStartup();
     hw.setup();
 
+    // Initialize the serial port and print some initial debug info.
     #ifdef SERIAL_ENABLED
     delay(1000);
     serialInit();
     serialPrintf("PAPR Rev 3, MCUSR = %x", resetFlags);
-    serialPrintf("UCSR0B %x", UCSR0B);
-    UCSR0B &= ~(1 << RXEN0);
-    UCSR0B &= ~(1 << RXCIE0);
-    serialPrintf("UCSR0B %x", UCSR0B);
     #endif
 
     // Decide what power state we should be in.
@@ -557,7 +563,6 @@ void Main::setup()
         flashAllLEDs(100, 10);
         initialPowerState = stateOn;
     } else {
-        //flashAllLEDs(50, 2);
         // The power just came on. This will happen when:
         // - somebody in the factory just connected the battery to the PCB; or
         // - the battery had been fully drained (and therefore not delivering any power), and the user just plugged in the charger.
@@ -573,17 +578,17 @@ void Main::setup()
     // resets the MCU too quickly. Once the code is solid, you could make it shorter.)
     wdt_enable(WDTO_8S);
 
+    // misc initialization
     hw.setPowerOnButtonInterruptCallback(this);
-
     battery.initializeCoulombCount();
     if (battery.isCharging()) {
         initialPowerState = (PAPRState)((int)initialPowerState + 2);
     }
-    //serialPrintf("setup() duration %ld mSec", hw.millis() - setupStartMillis);
     enterState(initialPowerState);
     statusReport.start();
 }
 
+// Call the update() function of everybody who wants to do something each time through the loop() function.
 void Main::doAllUpdates()
 {
     battery.update();
@@ -606,49 +611,13 @@ void Main::doAllUpdates()
     statusReport.update();
 }
 
-// TEMP
-//unsigned long lastBatteryPrintMillis = 0;
-
-// TEMP
-//unsigned long loopCount = 0;
-//unsigned long lastLoopCountReportMillis = 0;
-
-// TEMP
-//unsigned long lastHeartbeatToggleMillis = 0;
-//bool heartbeatToggle = false;
-
+// This is our main function, which gets called over and over again, forever.
 void Main::loop()
 {
     hw.wdt_reset_();
 
-    // TEMP
-    //if (hw.millis() - lastHeartbeatToggleMillis > 1000) {
-    //    heartbeatToggle = !heartbeatToggle;
-    //    setLED(FAN_HIGH_LED_PIN, heartbeatToggle ? LED_ON : LED_OFF);
-    //    lastHeartbeatToggleMillis = millis();
-    //}
-
-    // TEMP
-    //unsigned long now = hw.millis();
-    //if (now - lastBatteryPrintMillis > 5000) {
-    //    int percentFull = (int)(batteryCoulombs / BATTERY_CAPACITY_COULOMBS * 100.0);
-    //    serialPrintf("batteryCoulombs %ld = %d percent", (long)batteryCoulombs, percentFull);
-    //    lastBatteryPrintMillis = now;
-    //}
-
-    // TEMP
-    //if (hw.millis() - lastLoopCountReportMillis > 10000) {
-    //    serialPrintf("%ld loops in %ld millis", loopCount, hw.millis() - lastLoopCountReportMillis);
-    //    lastLoopCountReportMillis = hw.millis();
-    //    loopCount = 0;
-    //} else {
-    //    loopCount += 1;
-    //}
-    // March 18, 2021 - one loop() takes just under 1 millisecond, at 8 Mhz clock
-
     switch (paprState) {
         case stateOn:
-            // Update everything
             doAllUpdates();
             if (battery.isCharging()) {
                 enterState(stateOnCharging); 
@@ -656,13 +625,13 @@ void Main::loop()
             break;
 
         case stateOff:
+            // We have nothing to do except sleep.
+            // We will only come out of nap() when we are no longer in stateOff.
             nap();
-            // We only come out of nap() when we are no longer in stateOff.
             battery.wakeUp();
             break;
 
         case stateOnCharging:
-            // Update everything
             doAllUpdates();
             if (!battery.isCharging()) {
                 enterState(stateOn);
@@ -670,7 +639,7 @@ void Main::loop()
             break;
 
         case stateOffCharging:
-            // Only do updates related to battery
+            // Only do the updates that make sense when power is off.
             battery.update();
             updateBatteryLEDs();
             if (!battery.isCharging()) {
@@ -680,6 +649,26 @@ void Main::loop()
             statusReport.update();
             break;
     }
+}
+
+// Write a one-line summary of the status of everything.
+void Main::onStatusReport() {
+    serialPrintf("Fan,%s,Buzzer,%s,Alert,%s,Charging,%s,LEDs,%s,%s,%s,%s,%s,%s,%s,milliVolts,%ld,milliAmps,%ld,Coulombs,%ld,charge,%d%%",
+        (currentFanSpeed == fanLow) ? "lo" : ((currentFanSpeed == fanMedium) ? "med" : "hi"),
+        (buzzerState == BUZZER_ON) ? "on" : "off",
+        currentAlertName(),
+        battery.isCharging() ? "yes" : "no",
+        (ledState[0] == LED_ON) ? "red" : "---",
+        (ledState[1] == LED_ON) ? "yellow" : "---",
+        (ledState[2] == LED_ON) ? "green" : "---",
+        (ledState[3] == LED_ON) ? "amber" : "---",
+        (ledState[4] == LED_ON) ? "blue" : "---",
+        (ledState[5] == LED_ON) ? "blue" : "---",
+        (ledState[6] == LED_ON) ? "blue" : "---",
+        (long)(hw.readMicroVolts() / 1000LL),
+        (long)(hw.readMicroAmps() / 1000LL),
+        (long)(battery.getPicoCoulombs() / 1000000000000LL),
+        getBatteryPercentFull());
 }
 
 Main* Main::instance;
