@@ -8,7 +8,7 @@
 
 class Battery {
 public:
-    // BTW, you only need one instance of this class.        
+    // The constructor. You only need one instance of this class.        
     Battery();
 
     // Is the charger currently connected?

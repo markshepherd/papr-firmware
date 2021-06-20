@@ -1,5 +1,5 @@
 /*
-  Based on FanController.h/cpp by Giorgio Aresu.
+ * A class that knows how to control the fan. This code is based on Giorgio Aresu's Arduino FanController library.
 */
 #pragma once
 #include "Hardware.h"
@@ -11,7 +11,6 @@ public:
 	void begin();
 	unsigned int getRPM();
 	void setDutyCycle(byte dutyCycle);
-	byte getDutyCycle();
 	
 private:
 	void _attachInterrupt();
@@ -19,7 +18,6 @@ private:
 	byte _sensorPin;
 	unsigned int _sensorThreshold;
 	byte _pwmPin;
-	byte _pwmDutyCycle;
 	unsigned int _lastReading;
 	volatile unsigned int _halfRevs;
 	unsigned long _lastMillis;

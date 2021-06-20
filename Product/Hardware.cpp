@@ -35,8 +35,6 @@ void Hardware::configurePins()
     pinMode(FAN_LOW_LED_PIN, OUTPUT);
     pinMode(FAN_MED_LED_PIN, OUTPUT);
     pinMode(FAN_HIGH_LED_PIN, OUTPUT);
-    //pinMode(SERIAL_RX_PIN, INPUT);
-    //pinMode(SERIAL_TX_PIN, OUTPUT);
 }
 
 // Set all devices to an initial state
@@ -44,7 +42,7 @@ void Hardware::initializeDevices()
 {
     // Fan on at lowest speed
     digitalWrite(FAN_ENABLE_PIN, FAN_ON);
-    analogWrite(FAN_PWM_PIN, 0);
+    analogWrite(FAN_PWM_PIN, 0); // set the fan duty cycle to 0.
 
     // All LEDs off
     digitalWrite(BATTERY_LED_LOW_PIN, LED_OFF);
@@ -59,6 +57,8 @@ void Hardware::initializeDevices()
     analogWrite(BUZZER_PIN, BUZZER_OFF);
 }
 
+// Here is our version of Arduino's digitalWrite() function. Certain pins
+// are not handled by arduino, so we do it ourself.
 void Hardware::digitalWrite(uint8_t pin, uint8_t val)
 { 
     switch (pin) {
@@ -106,26 +106,27 @@ long long Hardware::readMicroVolts() {
     return ((long long)analogRead(BATTERY_VOLTAGE_PIN) * NANO_VOLTS_PER_VOLTAGE_UNIT) / 1000;
 }
 
-// Return value negative for discharging, positive for charging.
 long long Hardware::readMicroAmps() {
     long currentReading = analogRead(CHARGE_CURRENT_PIN);
     long referenceReading = analogRead(REFERENCE_VOLTAGE_PIN);
-    long long instantaneousReading = (((long long)(referenceReading - currentReading)) * NANO_AMPS_PER_CHARGE_FLOW_UNIT) / 1000LL;
+    long long readingMicroAmps = (((long long)(referenceReading - currentReading)) * NANO_AMPS_PER_CHARGE_FLOW_UNIT) / 1000LL;
 
     const long long lowPassFilterN = 10LL;
-    microAmps = ((microAmps * lowPassFilterN) + instantaneousReading) / (lowPassFilterN + 1);
+    microAmps = ((microAmps * lowPassFilterN) + readingMicroAmps) / (lowPassFilterN + 1);
     return microAmps;
 }
 
 void Hardware::reset()
 {
-    // "onReset" points to the RESET interrupt handler at address 0.
+    // "onReset" is a pointer to the RESET interrupt handler at address 0. Call it.
     void(*onReset) (void) = 0;
     onReset();
 }
 
 void Hardware::handleInterrupt() {
     if (powerOnButtonInterruptCallback) {
+        // A callback has been registered for the Power On Button interrupt. 
+        // Only call it if the button state has changed.
         unsigned int newPowerOnButtonState = digitalRead(POWER_ON_PIN);
         if (newPowerOnButtonState != powerOnButtonState) {
             powerOnButtonState = newPowerOnButtonState;
@@ -134,6 +135,8 @@ void Hardware::handleInterrupt() {
     }
 
     if (fanRPMInterruptCallback) {
+        // A callback has been registered for the Fan RPM interrupt. 
+        // Only call it if the signal state has changed.
         unsigned int newFanRPMState = digitalRead(FAN_RPM_PIN);
         if (newFanRPMState != fanRPMState) {
             fanRPMState = newFanRPMState;
@@ -142,6 +145,7 @@ void Hardware::handleInterrupt() {
     }
 }
 
+// The hardware interrupt vector points to this code.
 ISR(PCINT2_vect)
 {
     Hardware::instance.handleInterrupt();
@@ -225,10 +229,11 @@ void Hardware::setup() {
     // Initialize the hardware
     configurePins();
     initializeDevices();
-    /* TEMP */ //digitalWrite(FAN_MED_LED_PIN, LED_ON);
 }
 
+// This global function is used in a couple of places that don't have access to "Hardware.h" 
 unsigned long getMillis()
 {
     return Hardware::instance.millis();
 }
+

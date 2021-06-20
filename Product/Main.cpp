@@ -7,6 +7,8 @@
  * Be careful - this firmware keeps running even when the user does "Power Off". This code may need to run correctly for months at a time. Don't break this code!
  * All code must work when millis() and micros() wrap around
  * 
+ * Once a battery is connected to the PCB, the system runs continuously forever. The 
+ * only time we truly shut down is if the user completely drains the battery. 
  */
 #include "Main.h"
 #include "PB2PWM.h"

@@ -11,13 +11,12 @@ FanController::FanController(byte sensorPin, unsigned int sensorThreshold, byte 
 	_sensorThreshold = sensorThreshold;
 	_pwmPin = pwmPin;
 	hw.pinMode(pwmPin, OUTPUT);
-	_pwmDutyCycle = 100;
 }
 
 void FanController::begin()
 {
 	hw.digitalWrite(_sensorPin, HIGH);
-	setDutyCycle(_pwmDutyCycle);
+	setDutyCycle(100);
 	_attachInterrupt();
 }
 
@@ -36,12 +35,7 @@ unsigned int FanController::getRPM() {
 }
 
 void FanController::setDutyCycle(byte dutyCycle) {
-	_pwmDutyCycle = min((int)dutyCycle, 100);
-	hw.analogWrite(_pwmPin, 2.55 * _pwmDutyCycle);
-}
-
-byte FanController::getDutyCycle() {
-	return _pwmDutyCycle;
+	hw.analogWrite(_pwmPin, 2.55 * min((int)dutyCycle, 100));
 }
 
 void FanController::_attachInterrupt() {
@@ -52,6 +46,7 @@ void FanController::_detachInterrupt() {
 	hw.setFanRPMInterruptCallback(0);
 }
 
+// This function gets called each time there is a pin change interrupt on the RPM sensor pin
 void FanController::callback() {
 	if (hw.digitalRead(_sensorPin) == LOW) {
 		_halfRevs++;
