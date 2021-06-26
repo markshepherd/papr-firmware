@@ -109,11 +109,18 @@ I am not going to write a list of best practices for coding because there are a 
 
 [Functional Core Specification](https://docs.google.com/document/d/1O3QTVKkepRBzme7QUEG_r9uPpGkaOA27uIlCKO2OQU8/edit) - detailed description of everything the firmware does. 
 
-[Functional Core Verification Test Suite] - a detailed set of tests that fully exercise the firmware. You MUST run this entire suite before shipping a new version of the firmware.
+[Functional Core Verification Test Suite](https://docs.google.com/document/d/1ubjNnj6kYDCdJMwp07bt-jukzoTlcU7nhaN4yKzK2nk/edit) - a detailed set of tests that fully exercise the firmware. You MUST run this entire suite before shipping a new version of the firmware.
 
 [PAPR battery discharge 6-4-21](https://docs.google.com/spreadsheets/d/14-mchRN22HC6OSyAcN329NEcRRjF2_VMbKz3yHDDEoI/edit#gid=1527307635) - measurements of battery voltage and current when the battery is being discharged. This information helps understand the behavior of the battery, and is the basis for some of the magic constants that appear in the firmware.
 
 [PAPR battery charge 6-5-21](https://docs.google.com/spreadsheets/d/1fPnn2ukakk8MpyGW_KrOW2ediHh8FU6yWr4Kfq2UNJs/edit#gid=13224763) - ditto for battery charging.
 
 [PCB Schematic](https://drive.google.com/file/d/1MSYiGF72mZZyR-azV0Dmqaq_ivXD0C3Q/view?usp=sharing) - The schematic for the PCB. THIS IS THE V3.0 SCHEMATIC. ASK BRENT BOLTON FOR THE UPDATED V3.1 SCHEMATIC.
+
+[ATMega328p Info](https://www.microchip.com/wwwproducts/en/ATmega328P) - Info on the ATMega328p MCU
+
+[Fan Info](https://www.digikey.com/en/products/detail/sanyo-denki-america-inc/9GA0412P3K011/6192261) - Info on the 9GA0412P3K011 fan
+
+[Buzzer Info[???) - Info on the XXXX buzzer. (TBD)
+
 
