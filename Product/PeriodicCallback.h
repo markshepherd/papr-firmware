@@ -1,5 +1,5 @@
 // A minimal timer utility, that simply gives the ability to
-// call a function at a specied future time. There are lots of
+// call a function repeatedly at a specified interval. There are lots of
 // timer libraries out there that can do much more - this one does less.
 #pragma once
 

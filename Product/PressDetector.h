@@ -1,9 +1,10 @@
 #pragma once
 #include "Hardware.h"
 
-/********************************************************************
- * Press detector for buttons
- ********************************************************************/
+// An object that can detect button presses, and call 
+// a specified function when the button is pressed and released.
+// We do "debouncing", which means that a press is detected
+// only if the button is held for a specified period. 
 
 class PressDetector {
 private:
@@ -16,6 +17,11 @@ private:
     bool _callbackCalled;
 
 public:
+    // parameters are:
+    // pin:             which Arduino pin number the button is attached to
+    // requiredMillis:  a press will be detected only if the button is held for at least this long
+    // callback:        the function to call when the button is pressed
+    // releaseCallback: (optional) the function to call when the button is released
     PressDetector(int pin, unsigned long requiredMillis, void(*callback)(), void(*releaseCallback)() = 0)
         : _pin(pin), _requiredMillis(requiredMillis), _callback(callback), _releaseCallback(releaseCallback),
         _currentState(BUTTON_RELEASED), _pressMillis(0), _callbackCalled(true) {}
