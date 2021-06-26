@@ -2,51 +2,11 @@
  * Hardware.cpp
  */
 #include "Hardware.h"
-#include "Arduino.h"
-#include "PAPRHwDefs.h"
+#include <avr/interrupt.h>
 
-/********************************************************************
- * Arduino cover functions
- ********************************************************************/
+Hardware::Hardware() :powerOnButtonInterruptCallback(0), fanRPMInterruptCallback(0), microAmps(0) { }
 
-void Hardware::pinMode(uint8_t pin, uint8_t mode) {
-    ::pinMode(pin, mode);
-}
-
-void Hardware::digitalWrite(uint8_t pin, uint8_t val)
-{
-    ::digitalWrite(pin, val);
-}
-
-int Hardware::digitalRead(uint8_t pin)
-{
-    return ::digitalRead(pin);
-}
-
-int Hardware::analogRead(uint8_t pin)
-{
-    return ::analogRead(pin);
-}
-
-void Hardware::analogWrite(uint8_t pin, int val)
-{
-    ::analogWrite(pin, val);
-}
-
-unsigned long Hardware::millis(void)
-{
-    return ::millis();
-}
-
-void Hardware::delay(unsigned long ms)
-{
-    ::delay(ms);
-}
-
-void Hardware::delayMicroseconds(unsigned int us)
-{
-    ::delayMicroseconds(us);
-}
+Hardware Hardware::instance;
 
 /********************************************************************
  * PAPR-specific functions
@@ -55,45 +15,225 @@ void Hardware::delayMicroseconds(unsigned int us)
 // Configure all the microcontroller IO pins that this app uses.
 void Hardware::configurePins()
 {
-    // Output pins are defined by a 1 bit
-    DDRB = DDRB | B00000100; // Outputs are PB2
-    DDRC = DDRC | B00111111; // Outputs are PC0, PC1, PC2, PC3, PC4, PC5
-    DDRD = DDRD | B00100101; // Outputs are PD0, PD2, PD5
-
-    // Input pins are defined by a 0 bit
-    DDRB = DDRB & B11111101; // Inputs are PB1
-    DDRC = DDRC & B01111111; // Inputs are PC7
-    DDRD = DDRD & B01110101; // Inputs are PD1, PD3, PD7
-
-    // PD7 needs a pullup resistor
-    PORTD = B10000000;
-
-    // If we were launched in Debug mode from Visual Micro, then the UART is probably enabled.
-    // Turn off the USART, because it wants to use pins 0 and 1 (a.k.a. PORTD0 and PORTD1) which we are using for other things.
-    //bitClear(UCSR0B, RXEN0);
-    //bitClear(UCSR0B, TXEN0);
-    //bitClear(UCSR0B, RXCIE0);
-    //bitClear(UCSR0B, UDRIE0);
+    pinMode(FAN_UP_PIN, INPUT_PULLUP);
+    pinMode(FAN_DOWN_PIN, INPUT_PULLUP);
+    pinMode(POWER_OFF_PIN, INPUT_PULLUP);
+    pinMode(POWER_ON_PIN, INPUT_PULLUP);
+    pinMode(FAN_PWM_PIN, OUTPUT);
+    pinMode(FAN_RPM_PIN, INPUT);
+    DDRB |= (1 << DDB6); // pinMode(FAN_ENABLE_PIN, OUTPUT); // we can't use pinMode because it doesn't support pin PB6
+    pinMode(BATTERY_VOLTAGE_PIN, INPUT);
+    pinMode(CHARGE_CURRENT_PIN, INPUT);
+    pinMode(REFERENCE_VOLTAGE_PIN, INPUT);
+    pinMode(BOARD_POWER_PIN, OUTPUT);
+    pinMode(CHARGER_CONNECTED_PIN, INPUT_PULLUP);
+    pinMode(BUZZER_PIN, OUTPUT);
+    pinMode(BATTERY_LED_LOW_PIN, OUTPUT);
+    DDRB |= (1 << DDB7); // pinMode(BATTERY_LED_MED_PIN, OUTPUT); // we can't use pinMode because it doesn't support pin PB7
+    pinMode(BATTERY_LED_HIGH_PIN, OUTPUT);
+    pinMode(CHARGING_LED_PIN, OUTPUT);
+    pinMode(FAN_LOW_LED_PIN, OUTPUT);
+    pinMode(FAN_MED_LED_PIN, OUTPUT);
+    pinMode(FAN_HIGH_LED_PIN, OUTPUT);
 }
 
 // Set all devices to an initial state
 void Hardware::initializeDevices()
 {
-    // Fan to lowest speed
-    analogWrite(FAN_PWM_PIN, 0);
+    // Fan on at lowest speed
+    digitalWrite(FAN_ENABLE_PIN, FAN_ON);
+    analogWrite(FAN_PWM_PIN, 0); // set the fan duty cycle to 0.
 
     // All LEDs off
-    PORTC = 0x3f;
-    PORTD = 0x01;
+    digitalWrite(BATTERY_LED_LOW_PIN, LED_OFF);
+    digitalWrite(BATTERY_LED_MED_PIN, LED_OFF);
+    digitalWrite(BATTERY_LED_HIGH_PIN, LED_OFF);
+    digitalWrite(CHARGING_LED_PIN, LED_OFF);
+    digitalWrite(FAN_LOW_LED_PIN, LED_OFF);
+    digitalWrite(FAN_MED_LED_PIN, LED_OFF);
+    digitalWrite(FAN_HIGH_LED_PIN, LED_OFF);
 
     // Buzzer off
     analogWrite(BUZZER_PIN, BUZZER_OFF);
 }
 
-
-Hardware Hardware::hardwareInstance;
-
-Hardware& Hardware::instance()
-{
-    return hardwareInstance;
+// Here is our version of Arduino's digitalWrite() function. Certain pins
+// are not handled by arduino, so we do it ourself.
+void Hardware::digitalWrite(uint8_t pin, uint8_t val)
+{ 
+    switch (pin) {
+    case FAN_ENABLE_PIN:
+        // We have to access the port register directly, because digitalWrite doesn't support pin PB6.
+        if (val == HIGH) {
+            PORTB |= (1 << PB6);         // digitalWrite(FAN_ENABLE_PIN, HIGH);
+        }
+        else {
+            PORTB = PORTB & ~(1 << PB6); // digitalWrite(FAN_ENABLE_PIN, LOW);
+        }
+        break;
+    case BATTERY_LED_MED_PIN:
+        // We have to access the port register directly, because digitalWrite doesn't support pin PB7.
+        if (val == HIGH) {
+            PORTB |= (1 << PB7);         // digitalWrite(BATTERY_LED_MED_PIN, HIGH);
+        }
+        else {
+            PORTB = PORTB & ~(1 << PB7); // digitalWrite(BATTERY_LED_MED_PIN, LOW);
+        }
+        break;
+    default:
+        ::digitalWrite(pin, val);
+    }
 }
+
+int Hardware::watchdogStartup(void)
+{
+    int result = MCUSR;
+    MCUSR = 0;
+    wdt_disable();
+    return result;
+}
+
+// prescalerSelect is 0..8, giving division factor of 1..256
+void Hardware::setClockPrescaler(int prescalerSelect)
+{
+    noInterrupts();
+    CLKPR = (1 << CLKPCE);
+    CLKPR = prescalerSelect;
+    interrupts();
+}
+
+long long Hardware::readMicroVolts() {
+    return ((long long)analogRead(BATTERY_VOLTAGE_PIN) * NANO_VOLTS_PER_VOLTAGE_UNIT) / 1000;
+}
+
+long long Hardware::readMicroAmps() {
+    long currentReading = analogRead(CHARGE_CURRENT_PIN);
+    long referenceReading = analogRead(REFERENCE_VOLTAGE_PIN);
+    long long readingMicroAmps = (((long long)(referenceReading - currentReading)) * NANO_AMPS_PER_CHARGE_FLOW_UNIT) / 1000LL;
+
+    const long long lowPassFilterN = 10LL;
+    microAmps = ((microAmps * lowPassFilterN) + readingMicroAmps) / (lowPassFilterN + 1);
+    return microAmps;
+}
+
+void Hardware::reset()
+{
+    // "onReset" is a pointer to the RESET interrupt handler at address 0. Call it.
+    void(*onReset) (void) = 0;
+    onReset();
+}
+
+void Hardware::handleInterrupt() {
+    if (powerOnButtonInterruptCallback) {
+        // A callback has been registered for the Power On Button interrupt. 
+        // Only call it if the button state has changed.
+        unsigned int newPowerOnButtonState = digitalRead(POWER_ON_PIN);
+        if (newPowerOnButtonState != powerOnButtonState) {
+            powerOnButtonState = newPowerOnButtonState;
+            powerOnButtonInterruptCallback->callback();
+        }
+    }
+
+    if (fanRPMInterruptCallback) {
+        // A callback has been registered for the Fan RPM interrupt. 
+        // Only call it if the signal state has changed.
+        unsigned int newFanRPMState = digitalRead(FAN_RPM_PIN);
+        if (newFanRPMState != fanRPMState) {
+            fanRPMState = newFanRPMState;
+            fanRPMInterruptCallback->callback();
+        }
+    }
+}
+
+// The hardware interrupt vector points to this code.
+ISR(PCINT2_vect)
+{
+    Hardware::instance.handleInterrupt();
+}
+
+void Hardware::updateInterruptHandling() {
+    // Here is where we set up handling for Pin Change interrupts
+    // that correspond to Power On button presses and Fan RPM signals. 
+    // By default, PCMSK2 and PCICR are both 0, so we won't receive any Pin Change interrupts.
+    powerOnButtonState = digitalRead(POWER_ON_PIN);
+    fanRPMState = digitalRead(FAN_RPM_PIN);
+
+    if (powerOnButtonInterruptCallback) {
+        PCMSK2 |=   1 << PCINT23;  // set PCINT23 = 1 to enable PCINT on pin PD7
+    } else {
+        PCMSK2 &= ~(1 << PCINT23); // set PCINT23 = 0 to disable PCINT on pin PD7
+    }
+
+    if (fanRPMInterruptCallback) {
+        PCMSK2 |=   1 << PCINT21;  // set PCINT21 = 1 to enable PCINT on pin PD5
+    } else {
+        PCMSK2 &= ~(1 << PCINT21); // set PCINT21 = 0 to disable PCINT on pin PD5
+    }
+
+    if (powerOnButtonInterruptCallback || fanRPMInterruptCallback) {
+        PCICR |=   1 << PCIE2;     // set PCIE2 = 1 to enable PC interrupts
+    } else {
+        PCICR &= ~(1 << PCIE2);    // set PCIE2 = 0 to disable PC interrupts
+    }
+}
+
+void Hardware::setPowerOnButtonInterruptCallback(InterruptCallback* callback)
+{
+    powerOnButtonInterruptCallback = callback;
+    updateInterruptHandling();
+}
+
+void Hardware::setFanRPMInterruptCallback(InterruptCallback* callback)
+{
+    fanRPMInterruptCallback = callback;
+    updateInterruptHandling();
+}
+
+void Hardware::setPowerMode(PowerMode mode)
+{
+    if (mode == fullPowerMode) {
+        /* TEMP */ //digitalWrite(FAN_MED_LED_PIN, LED_ON);
+
+        // Set the PCB to Full Power mode.
+        digitalWrite(BOARD_POWER_PIN, BOARD_POWER_ON);
+
+        // Wait for things to settle down
+        delay(10);
+
+        // Set the clock prescaler to give the max speed.
+        setClockPrescaler(0);
+
+        // We are now running at full power, full speed.
+    } else {
+        // Full speed doesn't work in low power mode, so drop the MCU clock speed to 1 MHz (8 MHz internal oscillator divided by 2**3). 
+        setClockPrescaler(3);
+
+        // Now we can enter low power mode,
+        digitalWrite(BOARD_POWER_PIN, BOARD_POWER_OFF);
+
+        // Wait for the PCB to fully switch to low power mode (Note: at 1/8 speed, 30 ms is really 240 ms).
+        delay(30);
+
+        // We are now running at low power, low speed.
+        /* TEMP */ //digitalWrite(FAN_MED_LED_PIN, LED_OFF);
+    }
+
+    powerMode = mode;
+}
+
+void Hardware::setup() {
+    // If the power has just come on, then the PCB is in Low Power mode, and the MCU
+    // is running at 1 MHz (because the CKDIV8 fuse bit is programmed). Switch to full speed.
+    setPowerMode(fullPowerMode);
+
+    // Initialize the hardware
+    configurePins();
+    initializeDevices();
+}
+
+// This global function is used in a couple of places that don't have access to "Hardware.h" 
+unsigned long getMillis()
+{
+    return Hardware::instance.millis();
+}
+

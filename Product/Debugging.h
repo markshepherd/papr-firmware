@@ -1,7 +1,10 @@
 /*
  * Debugging.h
  * 
- * Temporary debug code, because we don't yet have a usable serial port or debugger.
+ * Temporary debug code for writing information to the LEDs.
+ * This code is no longer used, because we now are able to write
+ * to the serial port. This code probably doesn't compile any more
+ * but maybe someday it will be useful, so I'm keeping it.
  * 
  */
 #pragma once

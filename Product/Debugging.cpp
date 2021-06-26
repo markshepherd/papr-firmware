@@ -2,7 +2,7 @@
  * Debugging.cpp
  */
 #include "Debugging.h"
-#include "PAPRHwDefs.h"
+//#include "PAPRHwDefs.h"
 #include "Hardware.h"
 
 // Import a few things from Main.

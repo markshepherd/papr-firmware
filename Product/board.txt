@@ -1,0 +1,14 @@
+# Product build property overrides
+#
+# This file is used by Visual Micro when compiling the project.
+#
+# We need this file because our MCU clock is 8 MHz and we therefore need to override 
+# the default clock speed of 16 MHz.
+#
+# We use 8MHz clock speed for this project so we can avoid having a crystal. Instead, we use the MCU's built-in
+# oscillator. This saves some money, and frees up 2 pins. The MCU runs slower (8 MHz instead of 16) but we don't
+# need the extra speed. The 8MHz oscillator frequency is probably less precise than a crystal would provide,
+# but the most time-critical task we do is coulomb counting and it's OK to be off by a few percent.
+#
+
+build.f_cpu=8000000L

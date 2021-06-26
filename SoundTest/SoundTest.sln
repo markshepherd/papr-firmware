@@ -1,17 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
-VisualStudioVersion = 16.0.30717.126
+VisualStudioVersion = 16.0.31129.286
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Product", "Product.vcxproj", "{C5F80730-F44F-4478-BDAE-6634EFC2CA88}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Low-Power-master-1.6", "Libraries\Low-Power-master\1.6\Low-Power-master\Low-Power-master-1.6.vcxitems", "{236334DE-48AA-4E6C-89CB-3BBD0B8CC665}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SoundTest", "SoundTest.vcxproj", "{C5F80730-F44F-4478-BDAE-6634EFC2CA88}"
 EndProject
 Global
-	GlobalSection(SharedMSBuildProjectFiles) = preSolution
-		Libraries\Low-Power-master\1.6\Low-Power-master\Low-Power-master-1.6.vcxitems*{236334de-48aa-4e6c-89cb-3bbd0b8cc665}*SharedItemsImports = 9
-		Libraries\Low-Power-master\1.6\Low-Power-master\Low-Power-master-1.6.vcxitems*{c5f80730-f44f-4478-bdae-6634efc2ca88}*SharedItemsImports = 4
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
 		Release|x86 = Release|x86
@@ -26,6 +20,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {6C15CC42-6FB0-4E05-96C1-8F995F08F48A}
+		SolutionGuid = {64BD721A-4397-46BB-A587-04C53BC16D00}
 	EndGlobalSection
 EndGlobal

@@ -15,57 +15,36 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Product.ino" />
+    <None Include="SoundTest.ino" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="__vm\.Product.vsarduino.h">
+    <ClInclude Include="__vm\.SoundTest.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Hardware.h">
+    <ClInclude Include="..\Product\MySerial.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Main.h">
+    <ClInclude Include="PWM.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Timer.h">
+    <ClInclude Include="..\Product\Hardware.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MySerial.h">
+    <ClInclude Include="..\Product\PressDetector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PressDetector.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FanController.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Battery.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Recorder.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PeriodicCallback.h">
+    <ClInclude Include="..\Product\PeriodicCallback.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Hardware.cpp">
+    <ClCompile Include="..\Product\MySerial.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Main.cpp">
+    <ClCompile Include="PWM.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="MySerial.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="FanController.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Battery.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Recorder.cpp">
+    <ClCompile Include="..\Product\Hardware.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
