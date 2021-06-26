@@ -21,7 +21,7 @@ void serialPrintf(const char* __fmt, ...) {
 	vsnprintf(buffer, sizeof(buffer), __fmt, args);
 	va_end(args);
 	Serial.println(buffer);
-	Serial.flush(); // TEMP DON'T HAVE THIS IN PRODUCT
+	Serial.flush();
 	nextBuffer = 0;
 }
 
@@ -34,23 +34,6 @@ void serialInit() {
 	UCSR0B = UCSR0B & ~(1 << RXEN0); // disable USART Receiver.
 	pinMode(CHARGER_CONNECTED_PIN, INPUT_PULLUP);
 }
-
-//char* renderDouble(double number, char* pBuffer)
-//{
-//	if (!pBuffer) {
-//		const int size = 50;
-//		static char buffer[size];
-//		pBuffer = buffer;
-//	}
-//	bool negative;
-//	if (negative = number < 0) number = -number;
-//	long integerPart = (long)number;
-//	double fraction = number - (double)integerPart;
-//	char buff[15];
-//	sprintf(buff, "%ld", (long)(fraction * 1000000.0) + 1000000);
-//	sprintf(pBuffer, "%s%ld.%s", negative ? "-" : "", integerPart, &buff[1]);
-//	return pBuffer;
-//}
 
 char* renderLongLong(long long num) {
 	// doesn't work for LLONG_MAX + 1, a.k.a. -LLONG_MAX - 1
@@ -116,9 +99,4 @@ char* renderLongLong(long long num) {
     long long d = a;
     serialPrintf("4: %s %s %s %s", renderLongLong(a), renderLongLong(b), renderLongLong(c), renderLongLong(d));
 */
-#else
-#include "Arduino.h"
-void serialInit() { }
-void serialPrintf(const char* __fmt, ...) {}
-char* renderLongLong(long long num) { return 0; }
 #endif

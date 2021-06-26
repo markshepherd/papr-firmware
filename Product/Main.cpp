@@ -24,6 +24,9 @@
 // indexed by PAPRState
 const char* STATE_NAMES[] = { "Off", "On", "Off Charging", "On Charging" };
 
+// TODO make this automatically update during build process
+const char* PRODUCT_ID = "PAPR Rev 3.1 6/20/2021";
+
 /********************************************************************
  * Fan constants
  ********************************************************************/
@@ -349,6 +352,7 @@ void Main::enterState(PAPRState newState)
             allLEDsOff();
             break;
     }
+    onStatusReport();
 }
 
 // Set the PCB to its low power state, and put the MCU into its lowest power sleep mode.
@@ -491,6 +495,7 @@ void Main::onFanUpPress()
     setFanSpeed((instance->currentFanSpeed == fanLow) ? fanMedium : fanHigh);
 }
 
+// This function is an interrupt handler that gets called whenever the user presses the Power On button.
 void Main::callback()
 {
     if (hw.digitalRead(POWER_ON_PIN) == BUTTON_PUSHED && hw.digitalRead(FAN_UP_PIN) == BUTTON_PUSHED && hw.digitalRead(FAN_DOWN_PIN) == BUTTON_PUSHED) {
@@ -548,25 +553,27 @@ void Main::setup()
     #ifdef SERIAL_ENABLED
     delay(1000);
     serialInit();
-    serialPrintf("PAPR Rev 3, MCUSR = %x", resetFlags);
+    serialPrintf("%s, MCUSR = %x", PRODUCT_ID, resetFlags);
     #endif
 
-    // Decide what power state we should be in.
-    // If the reset that just happened was NOT a simple power-on, then flash some LEDs to tell the user something happened.
-    PAPRState initialPowerState;
+    // Decide what state we should be in.
+    PAPRState initialState;
     if (resetFlags & (1 << WDRF)) {
-        // Watchdog timer expired.
+        // Watchdog timer expired. Tell the user that something unusual happened.
         flashAllLEDs(100, 5);
-        initialPowerState = stateOn;
+        initialState = stateOn;
     } else if (resetFlags == 0) {
-        // Manual reset
+        // Manual reset. Tell the user that something unusual happened.
         flashAllLEDs(100, 10);
-        initialPowerState = stateOn;
+        initialState = stateOn;
     } else {
-        // The power just came on. This will happen when:
+        // It's a simple power-on. This will happen when:
         // - somebody in the factory just connected the battery to the PCB; or
         // - the battery had been fully drained (and therefore not delivering any power), and the user just plugged in the charger.
-        initialPowerState = stateOff;
+        initialState = stateOff;
+    }
+    if (battery.isCharging()) {
+        initialState = (PAPRState)((int)initialState + 2);
     }
 
     // Initialize the fan
@@ -578,13 +585,13 @@ void Main::setup()
     // resets the MCU too quickly. Once the code is solid, you could make it shorter.)
     wdt_enable(WDTO_8S);
 
-    // misc initialization
+    // Enable pin-change interrupts for the Power On button, and register a callback to handle those interrupts.
+    // The interrupt serves 2 distinct purposes: (1) to get this callback called, and (2) to wake us up if we're napping.
     hw.setPowerOnButtonInterruptCallback(this);
+
+    // and we're done!
     battery.initializeCoulombCount();
-    if (battery.isCharging()) {
-        initialPowerState = (PAPRState)((int)initialPowerState + 2);
-    }
-    enterState(initialPowerState);
+    enterState(initialState);
     statusReport.start();
 }
 
@@ -624,13 +631,6 @@ void Main::loop()
             }
             break;
 
-        case stateOff:
-            // We have nothing to do except sleep.
-            // We will only come out of nap() when we are no longer in stateOff.
-            nap();
-            battery.wakeUp();
-            break;
-
         case stateOnCharging:
             doAllUpdates();
             if (!battery.isCharging()) {
@@ -638,8 +638,19 @@ void Main::loop()
             }
             break;
 
+        case stateOff:
+            // We are not charging so there are no LEDs to update.
+            // We have nothing to do except take a nap. Our nap will end
+            // when the state is no longer stateOff.
+            nap();
+            battery.wakeUp();
+            break;
+
         case stateOffCharging:
-            // Only do the updates that make sense when power is off.
+            // Only do the work that is necessary when power is off and we're charging
+            // - update the battery status and battery LEDs
+            // - see if the charger has been unplugged
+            // - see if the Power On button was pressed
             battery.update();
             updateBatteryLEDs();
             if (!battery.isCharging()) {
@@ -651,8 +662,9 @@ void Main::loop()
     }
 }
 
-// Write a one-line summary of the status of everything.
+// Write a one-line summary of the status of everything. For use in testing and debugging.
 void Main::onStatusReport() {
+    #ifdef SERIAL_ENABLED
     serialPrintf("Fan,%s,Buzzer,%s,Alert,%s,Charging,%s,LEDs,%s,%s,%s,%s,%s,%s,%s,milliVolts,%ld,milliAmps,%ld,Coulombs,%ld,charge,%d%%",
         (currentFanSpeed == fanLow) ? "lo" : ((currentFanSpeed == fanMedium) ? "med" : "hi"),
         (buzzerState == BUZZER_ON) ? "on" : "off",
@@ -669,6 +681,7 @@ void Main::onStatusReport() {
         (long)(hw.readMicroAmps() / 1000LL),
         (long)(battery.getPicoCoulombs() / 1000000000000LL),
         getBatteryPercentFull());
+    #endif
 }
 
 Main* Main::instance;

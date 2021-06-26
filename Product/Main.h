@@ -27,7 +27,7 @@ enum FanSpeed { fanLow, fanMedium, fanHigh };
 // PAPRState is the states that the user perceives: the power is either on or off,
 // and the charger is either connected or disconnected. In reality, the MCU and the PCB
 // starts running when a battery is first connected and runs continuously until the battery is 
-// removed or is exhausted. If the user never drains the battery and charges the battery as needed,
+// removed or is exhausted. If the user never drains the battery and keeps the battery charged as needed,
 // this software will keep running for months at a time. When we are in stateOff or stateOffCharging,
 // the user thinks the device is turned off, but really we just turn off the fan and most/all of the lights, 
 // and then monitor the charging (if stateOffCharging) or take a low-power nap (if stateOff).
@@ -41,7 +41,8 @@ public:
     void setup();
     void loop();
 
-    // The PressDetector object polls a pin, and calls a callback when the pin value changes. There is one PressDetector object per button.
+    // The PressDetector object polls a pin, and calls a callback when the pin value changes.
+    // There is one PressDetector object per button.
     PressDetector buttonFanUp;
     PressDetector buttonFanDown;
     PressDetector buttonPowerOff;
@@ -111,14 +112,21 @@ private:
     /********************************************************************
      * Etc.
      ********************************************************************/
+
+    // What state are we currently in?
     PAPRState paprState;
+
+    // This object keeps track of the battery state-of-charge.
     Battery battery;
-    int ledState[numLEDs];
-    int buzzerState;
-    PeriodicCallback statusReport;
+
+    // Data for the periodic status reports that we send to the serial port. 
+    // For testing and debugging use.
+    int ledState[numLEDs];          // the current state of the LEDs
+    int buzzerState;                // the current state of the buzzer
+    PeriodicCallback statusReport;  // a timer that periodically triggers a status report
 
 public:
     // Glue
-    static Main* instance;
-    virtual void callback();
+    static Main* instance;   // the one and only instance of Main.
+    virtual void callback(); // handler for Power On button pin-change interrupts
 };
