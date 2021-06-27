@@ -26,13 +26,13 @@ To compile or develop this code:
 
 In visual studio, open the solution file "Product.sln".
 
-To compile the code, use xxxxx, or F7.
+To compile the code, use `Build > Build Solution`.
 
 To download and run the code:
 1. make sure the PCB has power, either from the battery connector, or the charger connector.
 1. connect the AVRISPMKII's USB cable to your computer
 1. connect the AVRISPMKII's 6-pin SPI connector to the PCB's 6-pin SPI header
-1. use xxxxx, or F5, to compile and download
+1. use `Debug > Start Debugging`, to compile and download
 
 If the PCB's power is coming from the battery connector, you must disconnect the 6-pin SPI after downloading, in order to run the board. If power is coming from the charger connector, you can leave the SPI connected.
 
@@ -103,7 +103,7 @@ The file `board.txt` is used by the compiler to define certain settings. For thi
 
 ### Development practices
 
-I am not going to write a list of best practices for coding because there are a million web sites that talk about this. The PAPR is a medical device and we need the code to be professional, high-quality, maintainable, and reliable. Please follow the naming, formatting, and commenting practices that you see in the code. Make sure your code is as clean and simple as possible. Make sure that other developers will be able to read and understand your code. Make sure you test your code thoroughly - once the product is delivered to the customer it is extremely difficult to fix bugs or update the code. If you find errors or omissions in this Readme, please update it to the next developer's life easier. If you add new features or change the behavior in any way, make sure to update, where applicable, the Specification, the Verification test suite (see links below), this readme file, and/or the comments in the code.
+I am not going to write a list of best practices for coding because there are a million web sites that talk about this. The PAPR is a medical device and we need the code to be professional, high-quality, maintainable, and reliable. Please follow the naming, formatting, and commenting practices that you see in the code. Make sure your code is as clean and simple as possible. Make sure that other developers will be able to read and understand your code. Make sure you test your code thoroughly - once the product is delivered to the customer it is extremely difficult to fix bugs or update the code. If you find errors or omissions in this Readme, please update it to make life easier for the next developer. If you add new features or change the behavior in any way, make sure to update, where applicable, the Specification, the Verification test suite (see links below), this readme file, and/or the comments in the code.
 
 ### Related documents
 
