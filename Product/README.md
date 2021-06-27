@@ -2,9 +2,9 @@
 
 This directory contains the firmware that runs the Air-To-All PAPR version 3.
 
-The firmware runs on the ATMega328p microcontroller chip (the "MCU") that is on the PAPR's PCB. Using the various pin inputs and output of the MCU, the firmware controls all the active components of the PAPR, including the buttons, LEDs, fan, buzzer, battery and charger. The firmware also has acceess to a serial port for text input/output for testing and debugging.
+The firmware runs on the ATMega328p microcontroller chip (the "MCU") that is on the PAPR's PCB. Using the various pin inputs and outputs of the MCU, the firmware monitors and controls all the active components of the PAPR, including the buttons, LEDs, fan, buzzer, battery and charger. The firmware also has acceess to a serial port for text input/output for testing and debugging.
 
-This is an Arduino-compatible app, written in C++. The app doesn't run on any actual arduino board, but we use Arduino as the base for this app so that we can take advantage of the Arduino APIs, Arduino libraries, and the Arduino community (forums, blogs, etc). If it became necessary to eliminate any Arduino dependencies, I think you could do it with a day or two of work.
+This is an Arduino-compatible app, written in C++. The app doesn't run on any actual arduino board, but we use the Arduino IDE and runtime as the base for this app so that we can take advantage of the Arduino APIs, Arduino libraries, and the Arduino community (forums, blogs, etc). If it became necessary to eliminate any Arduino dependencies, I think you could do it with a day or two of work.
 
 Unit testing: at present there is no automated testing of this code. However, the code is broken down into C++ classes in a way that would make it somewhat easy to add unit testing. This repo has a branch "unittest" that contains some very-out-of-date experimental code for this.
 
@@ -37,9 +37,18 @@ To download and run the code:
 If the PCB's power is coming from the battery connector, you must disconnect the 6-pin SPI after downloading, in order to run the board. If power is coming from the charger connector, you can leave the SPI connected.
 
 If you want to create a new project to run on the PAPR's MCU (for example some new kind of test code, or some experimental code):
-1. in Visual Studio, do `File > New`
-2. board.txt
-3. you may want to add to your new project a copy of Hardware.h, Hardware.cpp, MySerial.h, and MySerial.cpp. The initialization code in Hardware will help you get the board correctly started up.
+1. in Visual Studio, do `File > New > Project`, or select `Create a New Project` from Visual Studio's start page
+2. choose `Arduino Empty Project` and click `Next`
+3. choose a project name and location, choose `Create New Solution`, and click `Create`
+4. Do `Extensions > vMicro` and set IDE to `Arduino 1.6/1.8`
+5. Do `Extensions > vMicro` and set Board to `ATMega328P (Old Bootloader) (Arduino Nano)`
+6. Do `Extensions > vMicro > Uploader` and set Hardware Programmer to `AVRISP mkII`
+7. Do `Extensions > vMicro > Add Code > Add Local Board.txt`
+8. Edit the new file `board.txt` and add the line `build.f_cpu=8000000L`
+9. Do `Build > Configuration Manager...` and set Active Solution Configuration to `Release`
+11. Optional: add to your new project a copy of Hardware.h, Hardware.cpp, MySerial.h, and MySerial.cpp. Use the initialization code and pin defintions in Hardware to help you run the board correctly.
+
+Debugger: I have not succeeded in using a debugger on the PAPR. If you figure out how to do it, please update this Readme with instructions.
 
 ### Setting up `avrdude`
 
